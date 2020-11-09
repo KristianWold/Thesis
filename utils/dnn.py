@@ -3,13 +3,13 @@ import qiskit as qk
 
 
 class Ansatz():
-    def __call__(self, circuit, registers, parameters, inverse=False):
-        n = parameters.shape[0]
+    def __call__(self, circuit, registers, weights, inverse=False):
+        n = weights.shape[0]
         storage = registers[0]
 
         if not inverse:
-            for i, param in enumerate(parameters):
-                circuit.ry(param, storage[i])
+            for i, w in enumerate(weights):
+                circuit.ry(2*w, storage[i])
 
             for i in range(n - 1):
                 circuit.cx(storage[i], storage[i + 1])
@@ -18,8 +18,8 @@ class Ansatz():
             for i in reversed(range(n - 1)):
                 circuit.cx(storage[i], storage[i + 1])
 
-            for i, param in enumerate(parameters):
-                circuit.ry(-param, storage[i])
+            for i, w in enumerate(weights):
+                circuit.ry(-2*w, storage[i])
 
         return circuit
 
@@ -32,7 +32,7 @@ class Layer():
         self.backend = backend
         self.shots = shots
 
-        self.parameters = np.random.uniform(0, 2 * np.pi, (n_inputs, n_outputs))
+        self.weights = np.random.uniform(0, np.pi, (n_inputs + 1, n_outputs))
 
     def __call__(self, inputs):
         outputs = []
@@ -44,8 +44,9 @@ class Layer():
             registers = [storage, ancilla, clas_reg]
             circuit = qk.QuantumCircuit(*registers)
 
-            #self.ansatz(circuit, registers, inputs)
-            self.ansatz(circuit, registers, self.parameters[:, i])
+            self.ansatz(circuit, registers, inputs)
+            self.ansatz(circuit, registers, self.weights[:-1, i])
+            circuit.ry(2*self.weights[-1, i], ancilla[0])
             circuit.mcrx(np.pi, storage, ancilla[0])
             circuit.measure(ancilla, clas_reg)
 
@@ -60,16 +61,25 @@ class Layer():
         return np.array(outputs)
 
     def grad(self, inputs):
-        self.gradient = np.zeros(self.parameters.shape)
+        inputs = np.copy(inputs)
+        self.weights_gradient = np.zeros(self.weights.shape)
+        self.input_gradient = np.zeros((self.n_inputs, self.n_outputs))
+
+        for i in range(self.n_inputs + 1):
+            self.weights[i, :] += np.pi/4
+            self.weights_gradient[i, :] = 1/(np.sqrt(2))*self(inputs)
+            self.weights[i, :] += -np.pi/2
+            self.weights_gradient[i, :] += -1/(np.sqrt(2))*self(inputs)
+            self.weights[i, :] += np.pi/4
 
         for i in range(self.n_inputs):
-            self.parameters[i, :] += np.pi/2
-            self.gradient[i, :] = 0.5*self(inputs)
-            self.parameters[i, :] += -np.pi
-            self.gradient[i, :] += -0.5*self(inputs)
-            self.parameters[i, :] += np.pi/2
+            inputs[i] += np.pi/4
+            self.input_gradient[i, :] = 1/np.sqrt(2)*self(inputs)
+            inputs[i] += -np.pi/2
+            self.input_gradient[i, :] += -1/np.sqrt(2)*self(inputs)
+            inputs[i] += np.pi/4
 
-        return self.gradient
+        return self.weights_gradient, self.input_gradient
 
 class QNN():
     def __init__(self, layers):
@@ -77,9 +87,20 @@ class QNN():
         self.activations = 0
 
     def __call__(self, x):
+        self.a = []
+        self.a.append(x)
         for layer in self.layers:
             x = layer(x)
+            self.a.append(x)
+
         return x
 
-    def backprop(self):
-        pass
+    def backprop(self, x):
+        self.weights_gradients = []
+        self.input_gradients = []
+        self(x)
+
+        for i, layer in enumerate(self.layers):
+            gradient = layer.grad(self.a[i])
+            self.weights_gradients.append(gradient[0])
+            self.input_gradients.append(gradient[1])
