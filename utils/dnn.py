@@ -3,23 +3,15 @@ import qiskit as qk
 
 
 class Ansatz():
-    def __call__(self, circuit, registers, weights, inverse=False):
+    def __call__(self, circuit, registers, weights):
         n = weights.shape[0]
         storage = registers[0]
 
-        if not inverse:
-            for i, w in enumerate(weights):
-                circuit.ry(2*w, storage[i])
+        for i, w in enumerate(weights):
+            circuit.ry(2*w, storage[i])
 
-            for i in range(n - 1):
-                circuit.cx(storage[i], storage[i + 1])
-
-        else:
-            for i in reversed(range(n - 1)):
-                circuit.cx(storage[i], storage[i + 1])
-
-            for i, w in enumerate(weights):
-                circuit.ry(-2*w, storage[i])
+        for i in range(n - 1):
+            circuit.cx(storage[i], storage[i + 1])
 
         return circuit
 
@@ -46,45 +38,48 @@ class Layer():
 
             self.ansatz(circuit, registers, inputs)
             self.ansatz(circuit, registers, self.weights[:-1, i])
-            circuit.ry(2*self.weights[-1, i], ancilla[0])
+
+            #circuit.ry(2*self.weights[-1, i], ancilla[0])
+            circuit.x(storage)
             circuit.mcrx(np.pi, storage, ancilla[0])
             circuit.measure(ancilla, clas_reg)
 
             job = qk.execute(circuit, self.backend, shots=self.shots)
             result = job.result()
             counts = result.get_counts(circuit)
-            if "0" in counts:
-                outputs.append(counts["0"]/self.shots)
+            if "1" in counts:
+                outputs.append(counts["1"]/self.shots)
             else:
                 outputs.append(0)
 
         return np.array(outputs)
 
-    def grad(self, inputs):
+    def partial(self, inputs):
         inputs = np.copy(inputs)
-        self.weights_gradient = np.zeros(self.weights.shape)
-        self.input_gradient = np.zeros((self.n_inputs, self.n_outputs))
+        self.weights_delta = np.zeros(self.weights.shape)
+        self.input_delta = np.zeros((self.n_inputs, self.n_outputs))
 
         for i in range(self.n_inputs + 1):
             self.weights[i, :] += np.pi/4
-            self.weights_gradient[i, :] = 1/(np.sqrt(2))*self(inputs)
+            self.weights_delta[i, :] = 1/np.sqrt(2)*self(inputs)
             self.weights[i, :] += -np.pi/2
-            self.weights_gradient[i, :] += -1/(np.sqrt(2))*self(inputs)
+            self.weights_delta[i, :] += -1/np.sqrt(2)*self(inputs)
             self.weights[i, :] += np.pi/4
 
         for i in range(self.n_inputs):
             inputs[i] += np.pi/4
-            self.input_gradient[i, :] = 1/np.sqrt(2)*self(inputs)
+            self.input_delta[i, :] = 1/np.sqrt(2)*self(inputs)
             inputs[i] += -np.pi/2
-            self.input_gradient[i, :] += -1/np.sqrt(2)*self(inputs)
+            self.input_delta[i, :] += -1/np.sqrt(2)*self(inputs)
             inputs[i] += np.pi/4
 
-        return self.weights_gradient, self.input_gradient
+        return self.weights_delta, self.input_delta
 
 class QNN():
     def __init__(self, layers):
         self.layers = layers
         self.activations = 0
+
 
     def __call__(self, x):
         self.a = []
@@ -95,12 +90,27 @@ class QNN():
 
         return x
 
-    def backprop(self, x):
-        self.weights_gradients = []
-        self.input_gradients = []
+
+    def backprop(self, x, y):
+        weights_gradient = []
         self(x)
 
-        for i, layer in enumerate(self.layers):
-            gradient = layer.grad(self.a[i])
-            self.weights_gradients.append(gradient[0])
-            self.input_gradients.append(gradient[1])
+        y_pred = self.a[-1]
+        delta = (y_pred - y).reshape(-1,1)
+
+        for i, layer in reversed(list(enumerate(self.layers))):
+
+            partial = layer.partial(self.a[i])
+            weights_partial = partial[0]
+            input_partial = partial[1]
+
+            weights_gradient.append(weights_partial*delta.T)
+            delta = input_partial@delta
+
+        weights_gradient.reverse()
+        return weights_gradient
+
+
+    def update(self, weight_gradients, lr):
+        for layer, grad in zip(self.layers, weight_gradients):
+            layer.weights -= lr*grad
