@@ -2,9 +2,6 @@ import numpy as np
 import qiskit as qk
 
 
-
-
-
 class GD():
     def __init__(self, lr=0.01):
         self.lr = lr
@@ -47,6 +44,7 @@ class ADAM():
 
         return weight_gradient_modified
 
+
 class Ansatz():
     def __call__(self, circuit, registers, weights):
         n = weights.shape[0]
@@ -62,10 +60,11 @@ class Ansatz():
 
 
 class Layer():
-    def __init__(self, n_inputs=None, n_outputs=None, reps=1, ansatz=None, backend=None, shots=1000):
+    def __init__(self, n_inputs=None, n_outputs=None, reps=1, scale = 1, ansatz=None, backend=None, shots=1000):
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
         self.reps = reps
+        self.scale = scale
         self.ansatz = ansatz
         self.backend = backend
         self.shots = shots
@@ -97,7 +96,7 @@ class Layer():
             else:
                 outputs.append(0)
 
-        return np.array(outputs)
+        return self.scale*np.array(outputs)
 
     def partial(self, inputs):
         inputs = np.copy(inputs)
