@@ -59,35 +59,51 @@ class Ansatz():
         return circuit
 
 
+class Encoder():
+    def __call__(self, circuit, registers, inputs):
+        n = inputs.shape[0]
+        storage = registers[0]
+        n_qubits = storage.size
+
+        for i, w in enumerate(inputs):
+            circuit.ry(2*w, storage[i%n_qubits])
+
+        for i in range(n_qubits - 1):
+            circuit.cx(storage[i], storage[i + 1])
+
+        return circuit
+
+
 class Layer():
-    def __init__(self, n_inputs=None, n_outputs=None, reps=1, scale = 1, ansatz=None, backend=None, shots=1000):
+    def __init__(self, n_qubits = None, n_inputs=None, n_outputs=None, reps=1, scale = 1, encoder=None, ansatz=None, backend=None, shots=1000):
+        self.n_qubits = n_qubits
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
         self.reps = reps
         self.scale = scale
+        self.encoder = encoder
         self.ansatz = ansatz
         self.backend = backend
         self.shots = shots
 
-        self.weights = np.random.uniform(0, np.pi, (self.reps*n_inputs, n_outputs))
+        self.weights = np.random.uniform(0, np.pi, (reps*n_qubits, n_outputs))
 
     def __call__(self, inputs):
         outputs = []
 
         for i in range(self.n_outputs):
-            storage = qk.QuantumRegister(self.n_inputs, name="storage")
+            storage = qk.QuantumRegister(self.n_qubits, name="storage")
             clas_reg = qk.ClassicalRegister(1, name="clas_reg")
             registers = [storage, clas_reg]
             circuit = qk.QuantumCircuit(*registers)
 
-            self.ansatz(circuit, registers, inputs)
+            self.encoder(circuit, registers, inputs)
             for j in range(self.reps):
-                start = j*self.n_inputs
-                end = (j+1)*self.n_inputs
+                start = j*self.n_qubits
+                end = (j+1)*self.n_qubits
                 self.ansatz(circuit, registers, self.weights[start:end, i])
 
             circuit.measure(storage[-1], clas_reg)
-
             job = qk.execute(circuit, self.backend, shots=self.shots)
             result = job.result()
             counts = result.get_counts(circuit)
@@ -167,3 +183,7 @@ class QNN():
         weight_gradient_modified = self.optimizer(self.weight_gradient_list)
         for layer, grad in zip(self.layers, weight_gradient_modified):
                 layer.weights += -self.optimizer.lr*grad
+
+    def set_shots(self, shots):
+        for layer in self.layers:
+            layer.shots = shots
