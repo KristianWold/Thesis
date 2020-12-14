@@ -1,6 +1,8 @@
 import numpy as np
 import qiskit as qk
-
+import torch
+import torch.nn as nn
+from copy import deepcopy
 
 class GD():
     def __init__(self, lr=0.01):
@@ -13,8 +15,8 @@ class GD():
         return weight_gradient_list
 
 
-class ADAM():
-    def __init__(self, lr=0.01, beta1=0.9, beta2=0.99, eps=1e-8):
+class Adam():
+    def __init__(self, lr=0.01, beta1=0.9, beta2=0.999, eps=1e-8):
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
@@ -74,7 +76,7 @@ class Encoder():
         return circuit
 
 
-class Layer():
+class QLayer():
     def __init__(self, n_qubits = None, n_inputs=None, n_outputs=None, reps=1, scale = 1, encoder=None, ansatz=None, backend=None, shots=1000):
         self.n_qubits = n_qubits
         self.n_inputs = n_inputs
@@ -90,7 +92,6 @@ class Layer():
 
     def __call__(self, inputs):
         outputs = []
-
         for i in range(self.n_outputs):
             storage = qk.QuantumRegister(self.n_qubits, name="storage")
             clas_reg = qk.ClassicalRegister(1, name="clas_reg")
@@ -115,7 +116,7 @@ class Layer():
         return self.scale*np.array(outputs)
 
     def partial(self, inputs):
-        inputs = np.copy(inputs)
+        inputs = deepcopy(inputs)
         self.weight_partial = np.zeros(self.weights.shape)
         self.input_partial = np.zeros((self.n_inputs, self.n_outputs))
 
@@ -133,6 +134,54 @@ class Layer():
             self.input_partial[i, :] += -1/np.sqrt(2)*self(inputs)
             inputs[i] += np.pi/4
 
+        return self.weight_partial, self.input_partial
+
+
+class CLayer(nn.Module):
+    def __init__(self, n_inputs=None, n_outputs=None, scale = 1, activation = None):
+        super(CLayer, self).__init__()
+
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
+        self.layer = nn.Linear(n_inputs,n_outputs)
+        self.scale = scale
+        self.activation = activation
+
+    @property
+    def weights(self):
+        weights_ = torch.cat((self.layer.weight, self.layer.bias.reshape(-1,1)), 1)
+        return(weights_.T)
+
+    def update_weights(self,lr_grad):
+        with torch.no_grad():
+            self.layer.weight += lr_grad.T[:,:-1]
+            self.layer.bias += lr_grad.T[:,-1]
+        self.zero_grad()
+
+    def __call__(self, inputs):
+        input = deepcopy(inputs).reshape(1,-1)
+
+        if not type(input) is np.ndarray:
+            input = input.detach()
+        self.input = torch.tensor(input, requires_grad=True, dtype=torch.float)
+        self.output = self.layer(self.input).reshape(1,-1)
+        self.output = self.activation(self.output)
+        self.zero_grad()
+        return deepcopy(self.output.detach().numpy())
+
+    def partial(self, inputs):
+        self(inputs)
+        self.input_partial = torch.zeros((self.output.shape[1], self.input.shape[1]), requires_grad = False)
+        self.weight_partial = torch.zeros((self.layer.weight.shape[0], self.layer.weight.shape[1] + 1), requires_grad=False)
+        for j in range(self.output.shape[1]):
+            self.output[0, j].backward(retain_graph = True)
+            self.input_partial[j, :] = self.input.grad[0, :]
+            self.weight_partial[j,:-1] = self.layer.weight.grad[j,:]
+            self.weight_partial[j,-1] = self.layer.bias.grad[j]
+
+        self.zero_grad()
+        self.weight_partial = self.weight_partial.detach().numpy().T
+        self.input_partial = self.input_partial.detach().numpy().T
         return self.weight_partial, self.input_partial
 
 
@@ -169,7 +218,6 @@ class QNN():
             delta = (y_pred - y).reshape(-1,1)
 
             for i, layer in reversed(list(enumerate(self.layers))):
-
                 partial = layer.partial(self.a[i])
                 weight_partial = partial[0]
                 input_partial = partial[1]
@@ -182,7 +230,11 @@ class QNN():
     def step(self):
         weight_gradient_modified = self.optimizer(self.weight_gradient_list)
         for layer, grad in zip(self.layers, weight_gradient_modified):
-                layer.weights += -self.optimizer.lr*grad
+                if not type(layer.weights) is np.ndarray:
+                    grad_ = torch.tensor(grad.copy(), requires_grad = False)
+                    layer.update_weights(torch.nn.Parameter(-self.optimizer.lr*grad_))
+                else:
+                    layer.weights += -self.optimizer.lr*grad
 
     def set_shots(self, shots):
         for layer in self.layers:
