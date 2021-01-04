@@ -48,11 +48,11 @@ class Adam():
 
 
 class Ansatz():
-    def __call__(self, circuit, registers, weights):
-        n = weights.shape[0]
+    def __call__(self, circuit, registers, weight):
+        n = weight.shape[0]
         storage = registers[0]
 
-        for i, w in enumerate(weights):
+        for i, w in enumerate(weight):
             circuit.ry(2*w, storage[i])
 
         for i in range(n - 1):
@@ -88,7 +88,7 @@ class QLayer():
         self.backend = backend
         self.shots = shots
 
-        self.weights = np.random.uniform(0, np.pi, (reps*n_qubits, n_outputs))
+        self.weight = np.random.uniform(0, np.pi, (reps*n_qubits, n_outputs))
 
     def __call__(self, inputs):
         outputs = []
@@ -102,7 +102,7 @@ class QLayer():
             for j in range(self.reps):
                 start = j*self.n_qubits
                 end = (j+1)*self.n_qubits
-                self.ansatz(circuit, registers, self.weights[start:end, i])
+                self.ansatz(circuit, registers, self.weight[start:end, i])
 
             circuit.measure(storage[-1], clas_reg)
             job = qk.execute(circuit, self.backend, shots=self.shots)
@@ -115,48 +115,41 @@ class QLayer():
 
         return self.scale*np.array(outputs)
 
-    def partial(self, inputs):
+    def grad(self, inputs, delta):
         inputs = deepcopy(inputs)
-        self.weight_partial = np.zeros(self.weights.shape)
-        self.input_partial = np.zeros((self.n_inputs, self.n_outputs))
+        weight_partial = np.zeros(self.weight.shape)
+        input_partial = np.zeros((self.n_inputs, self.n_outputs))
 
         for i in range(self.reps*self.n_inputs):
-            self.weights[i, :] += np.pi/4
-            self.weight_partial[i, :] = 1/np.sqrt(2)*self(inputs)
-            self.weights[i, :] += -np.pi/2
-            self.weight_partial[i, :] += -1/np.sqrt(2)*self(inputs)
-            self.weights[i, :] += np.pi/4
+            self.weight[i, :] += np.pi/4
+            weight_partial[i, :] = 1/np.sqrt(2)*self(inputs)
+            self.weight[i, :] += -np.pi/2
+            weight_partial[i, :] += -1/np.sqrt(2)*self(inputs)
+            self.weight[i, :] += np.pi/4
 
         for i in range(self.n_inputs):
             inputs[i] += np.pi/4
-            self.input_partial[i, :] = 1/np.sqrt(2)*self(inputs)
+            input_partial[i, :] = 1/np.sqrt(2)*self(inputs)
             inputs[i] += -np.pi/2
-            self.input_partial[i, :] += -1/np.sqrt(2)*self(inputs)
+            input_partial[i, :] += -1/np.sqrt(2)*self(inputs)
             inputs[i] += np.pi/4
 
-        return self.weight_partial, self.input_partial
+        weight_gradient = weight_partial*delta.T
+        delta = input_partial@delta
 
+        return weight_gradient, delta
 
+"""
 class CLayer(nn.Module):
     def __init__(self, n_inputs=None, n_outputs=None, scale = 1, activation = None):
-        super(CLayer, self).__init__()
+        super().__init__()
 
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
-        self.layer = nn.Linear(n_inputs,n_outputs)
         self.scale = scale
         self.activation = activation
 
-    @property
-    def weights(self):
-        weights_ = torch.cat((self.layer.weight, self.layer.bias.reshape(-1,1)), 1)
-        return(weights_.T)
-
-    def update_weights(self,lr_grad):
-        with torch.no_grad():
-            self.layer.weight += lr_grad.T[:,:-1]
-            self.layer.bias += lr_grad.T[:,-1]
-        self.zero_grad()
+        self.weight = np.normal(0, 1, (n_inputs, n_outputs+1))
 
     def __call__(self, inputs):
         input = deepcopy(inputs).reshape(1,-1)
@@ -169,20 +162,84 @@ class CLayer(nn.Module):
         self.zero_grad()
         return deepcopy(self.output.detach().numpy())
 
-    def partial(self, inputs):
+    def grad(self, inputs, delta):
         self(inputs)
-        self.input_partial = torch.zeros((self.output.shape[1], self.input.shape[1]), requires_grad = False)
-        self.weight_partial = torch.zeros((self.layer.weight.shape[0], self.layer.weight.shape[1] + 1), requires_grad=False)
+        input_partial = torch.zeros((self.output.shape[1], self.input.shape[1]), requires_grad = False)
+        weight_partial = torch.zeros((self.layer.weight.shape[0], self.layer.weight.shape[1] + 1), requires_grad=False)
         for j in range(self.output.shape[1]):
             self.output[0, j].backward(retain_graph = True)
-            self.input_partial[j, :] = self.input.grad[0, :]
-            self.weight_partial[j,:-1] = self.layer.weight.grad[j,:]
-            self.weight_partial[j,-1] = self.layer.bias.grad[j]
+            input_partial[j, :] = self.input.grad[0, :]
+            weight_partial[j,:-1] = self.layer.weight.grad[j,:]
+            weight_partial[j,-1] = self.layer.bias.grad[j]
 
         self.zero_grad()
-        self.weight_partial = self.weight_partial.detach().numpy().T
-        self.input_partial = self.input_partial.detach().numpy().T
-        return self.weight_partial, self.input_partial
+        weight_partial = weight_partial.detach().numpy().T
+        input_partial = input_partial.detach().numpy().T
+
+        weight_gradient = inputs*delta
+        bias_gradient = delta
+        weight_gradient = np.concatenate((weight_gradient, bias_gradient), axis=1)
+
+        delta = input_partial*(self.layer.weight.detach().numpy().T@delta)
+
+        return weight_gradient, delta
+"""
+
+
+class CLayer(nn.Module):
+    def __init__(self, n_inputs=None, n_outputs=None, activation = None):
+        super().__init__()
+
+        self.n_inputs = n_inputs
+        self.n_outputs = n_outputs
+        self.layer = nn.Linear(n_inputs, n_outputs)
+        self.activation = activation
+
+    @property
+    def weight(self):
+        weight_ = torch.cat((self.layer.weight, self.layer.bias.reshape(-1,1)), 1)
+        return(weight_.T)
+
+    def update_weight(self,lr_grad):
+        with torch.no_grad():
+            self.layer.weight += lr_grad.T[:,:-1]
+            self.layer.bias += lr_grad.T[:,-1]
+        self.zero_grad()
+
+    def __call__(self, inputs):
+        input = deepcopy(inputs).reshape(1,-1)
+        self.zero_grad()
+        if not type(input) is np.ndarray:
+            input = input.detach()
+        self.input = torch.tensor(input, requires_grad=True, dtype=torch.float)
+        self.output = self.layer(self.input).reshape(1,-1)
+        self.output = self.activation(self.output)
+
+        return deepcopy(self.output.detach().numpy())
+
+    def grad(self, inputs, delta):
+        self(inputs)
+        input_partial = torch.zeros((self.output.shape[1], self.input.shape[1]), requires_grad = False)
+        weight_partial = torch.zeros((self.layer.weight.shape[0], self.layer.weight.shape[1] + 1), requires_grad=False)
+        for j in range(self.output.shape[1]):
+            self.output[0, j].backward(retain_graph = True)
+            input_partial[j, :] = self.input.grad[0, :]
+            weight_partial[j,:-1] = self.layer.weight.grad[j,:]
+            weight_partial[j,-1] = self.layer.bias.grad[j]
+
+        self.zero_grad()
+        weight_partial = weight_partial.detach().numpy().T
+        input_partial = input_partial.detach().numpy().T
+
+        #weight_gradient = inputs*delta
+        #bias_gradient = delta
+        #weight_gradient = np.concatenate((weight_gradient, bias_gradient), axis=1)
+
+        #delta = input_partial@delta
+        weight_gradient = weight_partial*delta.T
+        delta = input_partial@delta
+
+        return weight_gradient, delta
 
 
 class QNN():
@@ -192,7 +249,7 @@ class QNN():
         self.optimizer = optimizer
 
         for layer in self.layers:
-            self.dim.append(layer.weights.shape)
+            self.dim.append(layer.weight.shape)
 
         self.optimizer.initialize(self.dim)
         self.a = 0
@@ -209,7 +266,7 @@ class QNN():
         n = X.shape[0]
         weight_gradient_list = []
         for layer in self.layers:
-            weight_gradient = np.zeros(layer.weights.shape)
+            weight_gradient = np.zeros(layer.weight.shape)
             weight_gradient_list.append(weight_gradient)
 
         for x, y in zip(X,Y):
@@ -218,24 +275,37 @@ class QNN():
             delta = (y_pred - y).reshape(-1,1)
 
             for i, layer in reversed(list(enumerate(self.layers))):
-                partial = layer.partial(self.a[i])
-                weight_partial = partial[0]
-                input_partial = partial[1]
-
-                weight_gradient_list[i] += weight_partial*delta.T
-                delta = input_partial@delta
+                weight_gradient, delta = layer.grad(self.a[i], delta)
+                weight_gradient_list[i] = weight_gradient_list[i] + weight_gradient
 
         self.weight_gradient_list = [grad/n for grad in weight_gradient_list]
 
     def step(self):
         weight_gradient_modified = self.optimizer(self.weight_gradient_list)
         for layer, grad in zip(self.layers, weight_gradient_modified):
-                if not type(layer.weights) is np.ndarray:
+                if not type(layer.weight) is np.ndarray:
                     grad_ = torch.tensor(grad.copy(), requires_grad = False)
-                    layer.update_weights(torch.nn.Parameter(-self.optimizer.lr*grad_))
+                    layer.update_weight(torch.nn.Parameter(-self.optimizer.lr*grad_))
                 else:
-                    layer.weights += -self.optimizer.lr*grad
+                    layer.weight += -self.optimizer.lr*grad
 
     def set_shots(self, shots):
         for layer in self.layers:
             layer.shots = shots
+
+
+def sequential(dim, backend, shots=1000):
+    layers = []
+    for i in range(len(dim)-2):
+        in_dim = dim[i]
+        out_dim = dim[i+1]
+        layer = QLayer(n_qubits=in_dim, n_inputs=in_dim, n_outputs=out_dim, encoder=Encoder(), ansatz=Ansatz(), reps=1, scale=np.pi, backend=backend, shots=shots)
+        layers.append(layer)
+
+    layer = QLayer(n_qubits=dim[-2], n_inputs=dim[-2], n_outputs=dim[-1], encoder=Encoder(), ansatz=Ansatz(), reps=1, scale=1, backend=backend, shots=shots)
+    layers.append(layer)
+
+    optimizer = Adam(lr=0.01)
+    network = QNN(layers, optimizer)
+
+    return network
