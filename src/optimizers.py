@@ -13,7 +13,7 @@ class GD():
 
 
 class Adam():
-    def __init__(self, lr=0.01, beta1=0.9, beta2=0.999, eps=1e-6):
+    def __init__(self, lr=0.01, beta1=0.9, beta2=0.999, eps=1e-8):
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
@@ -33,12 +33,12 @@ class Adam():
         weight_gradient_modified = []
 
         for grad, m_, v_ in zip(weight_gradient_list, self.m, self.v):
-            m_ = self.beta1*m_ + (1 - self.beta1)*grad
-            v_ = self.beta2*v_ + (1 - self.beta2)*grad**2
+            m_ = self.beta1 * m_ + (1 - self.beta1) * grad
+            v_ = self.beta2 * v_ + (1 - self.beta2) * grad**2
 
-            m_hat = m_/(1 - self.beta1**self.t)
-            v_hat = v_/(1 - self.beta2**self.t)
-            grad_modified = m_hat/(np.sqrt(v_hat) + self.eps)
+            m_hat = m_ / (1 - self.beta1**self.t)
+            v_hat = v_ / (1 - self.beta2**self.t)
+            grad_modified = m_hat / (np.sqrt(v_hat) + self.eps)
             weight_gradient_modified.append(grad_modified)
 
         return weight_gradient_modified

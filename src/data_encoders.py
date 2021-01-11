@@ -7,12 +7,12 @@ from math import floor
 def calculate_rotation(data, i, j):
     n = int(np.log2(len(data)))
 
-    idx1 = (2*j+1)*2**(n-i-1)
-    idx2 = (j+1)*2**(n-i)
-    idx3 = j*2**(n-i)
-    idx4 = (j+1)*2**(n-i)
+    idx1 = (2 * j + 1) * 2**(n - i - 1)
+    idx2 = (j + 1) * 2**(n - i)
+    idx3 = j * 2**(n - i)
+    idx4 = (j + 1) * 2**(n - i)
 
-    if i==n-1:
+    if i == n - 1:
         a1 = data[idx1]
     else:
         a1 = np.sqrt(np.sum(np.abs(data[idx1:idx2])**2))
@@ -21,16 +21,16 @@ def calculate_rotation(data, i, j):
     if a2 == 0:
         return 0
     else:
-        return 2*np.arcsin(a1/a2)
+        return 2 * np.arcsin(a1 / a2)
 
 
 def interger_to_binary(integer, digits):
     binary = [int(b) for b in bin(integer)[2:]]
-    binary = (digits-len(binary))*[0] + binary
+    binary = (digits - len(binary)) * [0] + binary
     return binary
 
 
-def amplitude_encoding(data, circuit, reg, inverse = False):
+def amplitude_encoding(data, circuit, reg, inverse=False):
     N = data.shape[0]
     n = int(np.log2(N))
     clas_reg, storage, ancillae = reg
@@ -38,62 +38,63 @@ def amplitude_encoding(data, circuit, reg, inverse = False):
     if not inverse:
         circuit.ry(calculate_rotation(data, 0, 0), storage[0])
         for i in range(1, n):
-            binary_ref = i*[0]
+            binary_ref = i * [0]
             circuit.x(storage[:i])
 
             for j in range(2**i):
                 binary = interger_to_binary(j, i)
 
                 for k, (b, b_ref) in enumerate(zip(binary, binary_ref)):
-                    if b != b_ref: circuit.x(storage[k])
+                    if b != b_ref:
+                        circuit.x(storage[k])
 
-                circuit.mcry(calculate_rotation(data, i, j), storage[:i], storage[i], ancillae[:i])
+                circuit.mcry(calculate_rotation(data, i, j),
+                             storage[:i], storage[i], ancillae[:i])
                 binary_ref = binary
 
-
     else:
-        for i in range(n-1, 0, -1):
-            binary_ref = i*[1]
-            for j in range(2**i-1, -1, -1):
+        for i in range(n - 1, 0, -1):
+            binary_ref = i * [1]
+            for j in range(2**i - 1, -1, -1):
                 binary = interger_to_binary(j, i)
 
                 for k, (b, b_ref) in enumerate(zip(binary, binary_ref)):
-                    if b != b_ref: circuit.x(storage[k])
+                    if b != b_ref:
+                        circuit.x(storage[k])
 
-                circuit.mcry(-calculate_rotation(data, i, j), storage[:i], storage[i], ancillae[:i])
+                circuit.mcry(-calculate_rotation(data, i, j),
+                             storage[:i], storage[i], ancillae[:i])
                 binary_ref = binary
 
             circuit.x(storage[:i])
 
         circuit.ry(-calculate_rotation(data, 0, 0), storage[0])
 
-
     return circuit
 
 
 def basis_encoding(x):
-    M,N = x.shape
+    M, N = x.shape
 
     clas_reg = qk.ClassicalRegister(N)
-    loading_reg = qk.QuantumRegister(N, name = "loading")
-    storage_reg = qk.QuantumRegister(N, name = "storage")
-    ancillas = qk.QuantumRegister(N, name = "ancillas")
-    branches = qk.QuantumRegister(2, name = "branches")
+    loading_reg = qk.QuantumRegister(N, name="loading")
+    storage_reg = qk.QuantumRegister(N, name="storage")
+    ancillas = qk.QuantumRegister(N, name="ancillas")
+    branches = qk.QuantumRegister(2, name="branches")
 
-
-    circuit = qk.QuantumCircuit(clas_reg, loading_reg, storage_reg, ancillas, branches)
+    circuit = qk.QuantumCircuit(
+        clas_reg, loading_reg, storage_reg, ancillas, branches)
     circuit.x(branches[1])
-
 
     for i in range(M):
         for j in range(N):
-            if x[i,j] == 1:
+            if x[i, j] == 1:
                 circuit.x(loading_reg[j])
                 circuit.cx(branches[1], storage_reg[j])
 
         circuit.cx(branches[1], branches[0])
-        theta = -1/np.sqrt(M-i)
-        circuit.cry(2*np.arcsin(theta), branches[0], branches[1])
+        theta = -1 / np.sqrt(M - i)
+        circuit.cry(2 * np.arcsin(theta), branches[0], branches[1])
 
         circuit.toffoli(loading_reg, storage_reg, ancillas)
         circuit.x(loading_reg)
@@ -108,7 +109,7 @@ def basis_encoding(x):
         circuit.toffoli(loading_reg, storage_reg, ancillas)
 
         for j in range(N):
-            if x[i,j] == 1:
+            if x[i, j] == 1:
                 circuit.x(loading_reg[j])
                 circuit.cx(branches[1], storage_reg[j])
 
@@ -117,28 +118,28 @@ def basis_encoding(x):
 
 
 def float_to_binary(x, digits=4):
-        binary_rep = []
-        if x>0:
-            binary_rep.append(0)
-        else:
-            binary_rep.append(1)
+    binary_rep = []
+    if x > 0:
+        binary_rep.append(0)
+    else:
+        binary_rep.append(1)
 
-        x = abs(x)
+    x = abs(x)
 
-        for i in range(digits):
-            digit = floor(x*2**(i))
-            binary_rep.append(digit)
-            x -= digit*2**(-i)
+    for i in range(digits):
+        digit = floor(x * 2**(i))
+        binary_rep.append(digit)
+        x -= digit * 2**(-i)
 
-        return binary_rep
+    return binary_rep
 
 
 def design_matrix_to_binary(X, digits=4):
-    M,N = X.shape
+    M, N = X.shape
     X_ = []
 
     for row in X:
         row_ = [float_to_binary(feature, digits) for feature in row]
         X_.append(row_)
 
-    return np.array(X_).reshape(M, (digits+1)*N)
+    return np.array(X_).reshape(M, (digits + 1) * N)
