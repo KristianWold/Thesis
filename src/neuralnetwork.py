@@ -48,6 +48,17 @@ class NeuralNetwork():
         for layer, grad in zip(self.layers, weight_gradient_modified):
             layer.weight += -self.optimizer.lr * grad
 
+    def deriv(self, x):
+        self.weight_gradient_list = []
+
+        self(x)
+        delta = np.ones_like(x)
+
+        for i, layer in reversed(list(enumerate(self.layers))):
+            weight_gradient, delta = layer.grad(self.a[i], delta)
+
+        return delta
+
     def set_shots(self, shots):
         for layer in self.layers:
             layer.shots = shots

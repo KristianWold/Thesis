@@ -106,9 +106,9 @@ class QLayer():
 
     def __call__(self, inputs):
         outputs = []
+        circuit_list = []
+        n_samples = inputs.shape[0]
         for x in inputs:
-
-            outputs_single_sample = []
             for i in range(self.n_targets):
                 storage = qk.QuantumRegister(self.n_qubits, name="storage")
                 clas_reg = qk.ClassicalRegister(1, name="clas_reg")
@@ -122,15 +122,24 @@ class QLayer():
                     self.ansatz(circuit, registers, self.weight[start:end, i])
 
                 circuit.measure(storage[-1], clas_reg)
-                job = qk.execute(circuit, self.backend, shots=self.shots)
-                result = job.result()
-                counts = result.get_counts(circuit)
-                if "1" in counts:
-                    outputs_single_sample.append(counts["1"] / self.shots)
-                else:
-                    outputs_single_sample.append(0)
+                circuit_list.append(circuit)
 
-            outputs.append(outputs_single_sample)
+        transpiled_list = qk.transpile(circuit_list, backend=self.backend)
+        qobject_list = qk.assemble(transpiled_list,
+                                backend=self.backend,
+                                shots=self.shots,
+                                max_parallel_shots = 1,
+                                max_parallel_experiments = 0)
+        job = self.backend.run(qobject_list)
+
+        for circuit in transpiled_list:
+            counts = job.result().get_counts(circuit)
+            if "1" in counts:
+                outputs.append(counts["1"] / self.shots)
+            else:
+                outputs.append(0)
+
+        outputs = np.array(outputs).reshape(n_samples,-1)
 
         return self.scale * np.array(outputs)
 
