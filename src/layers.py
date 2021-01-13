@@ -1,7 +1,7 @@
 import numpy as np
 import qiskit as qk
 from copy import deepcopy
-from .optimizers import Adam, GD
+from optimizers import Adam, GD
 
 
 class Ansatz():
@@ -126,20 +126,21 @@ class QLayer():
 
         transpiled_list = qk.transpile(circuit_list, backend=self.backend)
         qobject_list = qk.assemble(transpiled_list,
-                                backend=self.backend,
-                                shots=self.shots,
-                                max_parallel_shots = 1,
-                                max_parallel_experiments = 0)
+                                   backend=self.backend,
+                                   shots=self.shots,
+                                   max_parallel_shots=1,
+                                   max_parallel_experiments=0
+                                   )
         job = self.backend.run(qobject_list)
 
-        for circuit in transpiled_list:
+        for circuit in circuit_list:
             counts = job.result().get_counts(circuit)
             if "1" in counts:
                 outputs.append(counts["1"] / self.shots)
             else:
                 outputs.append(0)
 
-        outputs = np.array(outputs).reshape(n_samples,-1)
+        outputs = np.array(outputs).reshape(n_samples, -1)
 
         return self.scale * np.array(outputs)
 

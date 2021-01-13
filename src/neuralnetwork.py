@@ -1,8 +1,8 @@
 import numpy as np
 import qiskit as qk
 from copy import deepcopy
-from .optimizers import Adam, GD
-from .layers import *
+from optimizers import Adam, GD
+from layers import *
 
 
 class NeuralNetwork():

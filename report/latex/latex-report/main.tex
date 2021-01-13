@@ -1,0 +1,86 @@
+%==========================================================
+%-------------------- begin preamble ----------------------
+%==========================================================
+%\documentclass[12pt]{article}
+\documentclass[12pt, a4paper, abstracton]{scrartcl}
+\setkomafont{disposition}{\normalfont\bfseries}
+\usepackage{Setup/style}
+\input{Setup/macros}
+\addbibresource{bibliography.bib}   % Bibliography
+
+% Set graphics path
+\graphicspath{{latex/figures/}}
+
+%-------- header & foot -------- 
+% FILL IN APPROPRIATE DESCRIPTIONS
+% title page
+\pagestyle{fancy}
+\fancypagestyle{firststyle}
+{
+   \fancyhf{}
+   \fancyfoot[C]{
+   % Link to GitHub
+   \faGithub \ 
+   \href{https://github.com/nicolossus}{github.com/nicolossus/FYS-STK4155-Project3}}
+   \renewcommand{\headrulewidth}{0pt}
+   \renewcommand{\footrulewidth}{0.4pt}
+}
+% rest of document
+\fancyhead[L]{\small FYS-STK4155}        % Set <course>
+\fancyhead[C]{\small Project 3}          % Set <title>    
+\fancyhead[R]{\small December 19, 2019}  % Set <date>
+\fancyfoot[C]{-- \thepage\ --}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+%==========================================================
+%-------------------- end preamble ----------------------
+%==========================================================
+
+%==========================================================
+%-------------------- main content ----------------------
+%==========================================================
+\begin{document}
+%------------------ title -------------------------
+\input{Sections/1_Titlepage}
+\pagenumbering{gobble}
+\thispagestyle{firststyle}
+
+%---------------- abstract -------------------------
+\input{Sections/2_Abstract}   % Abstract on title page
+\newpage
+
+%------------ content overview ---------------------
+\frontmatter      % Folios in Roman numerals
+\tableofcontents    
+%\abstractintoc   % Add abstract to table of contents
+%\listoffigures      
+%\listoftables       
+%\listofalgorithms
+%\listoftodos       % list TODOs
+
+%----------------- body ----------------------------
+\mainmatter         % Folios in Arabic numerals
+\input{Sections/3_Introduction}
+\newpage 
+\input{Sections/4_Theory}
+\newpage
+\input{Sections/5_Method}
+\newpage
+\input{Sections/6_Results}
+\newpage
+%\input{Sections/7_Discussion}
+\input{Sections/8_Conclusion}
+\input{Sections/9_FutureWork}
+ 
+%-------- bibliography ----------- 
+\newpage 
+\printbibliography[heading=bibintoc, title={References}]
+
+%-------- appendix -----------
+%\appendix
+%\include{Sections/X_Appendix} 
+
+\end{document}
+%==========================================================
+% ------------------- end of main content ---------------
+%==========================================================
