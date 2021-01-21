@@ -34,8 +34,7 @@ class NeuralNetwork():
 
         self(x)
         y_pred = self.a[-1]
-        #delta = (y_pred - y)
-        delta = np.ones_like(x)
+        delta = (y_pred - y)
 
         for i, layer in reversed(list(enumerate(self.layers))):
             weight_gradient, delta = layer.grad(self.a[i], delta)
