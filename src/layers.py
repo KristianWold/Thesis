@@ -150,7 +150,7 @@ class QLayer():
         weight_partial = np.zeros((n_samples, *self.weight.shape))
         input_partial = np.zeros((n_samples, self.n_features, self.n_targets))
 
-        for i in range(self.reps * self.n_features):
+        for i in range(self.reps * self.n_qubits):
             self.weight[i, :] += np.pi / 4
             weight_partial[:, i, :] = 1 / np.sqrt(2) * self(inputs)
             self.weight[i, :] += -np.pi / 2
