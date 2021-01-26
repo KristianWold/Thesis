@@ -29,7 +29,7 @@ class NeuralNetwork():
         self(x)
         return self.a[-1]
 
-    def backward(self, x, y):
+    def backward(self, x, y, samplewise=False):
         self.weight_gradient_list = []
 
         self(x)
@@ -37,7 +37,8 @@ class NeuralNetwork():
         delta = (y_pred - y)
 
         for i, layer in reversed(list(enumerate(self.layers))):
-            weight_gradient, delta = layer.grad(self.a[i], delta)
+            weight_gradient, delta = layer.grad(
+                self.a[i], delta, samplewise=samplewise)
             self.weight_gradient_list.append(weight_gradient)
 
         self.weight_gradient_list.reverse()

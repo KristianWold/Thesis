@@ -144,7 +144,7 @@ class QLayer():
 
         return self.scale * np.array(outputs)
 
-    def grad(self, inputs, delta):
+    def grad(self, inputs, delta, samplewise=False):
         inputs = deepcopy(inputs)
         n_samples = inputs.shape[0]
         weight_partial = np.zeros((n_samples, *self.weight.shape))
@@ -164,8 +164,10 @@ class QLayer():
             input_partial[:, i, :] += -1 / np.sqrt(2) * self(inputs)
             inputs[:, i] += np.pi / 4
 
-        weight_gradient = np.mean(
-            weight_partial * delta.reshape(n_samples, 1, -1), axis=0)
+        weight_gradient = weight_partial * delta.reshape(n_samples, 1, -1)
+        if not samplewise:
+            weight_gradient = np.mean(weight_gradient, axis=0)
+
         delta = np.einsum("ij,ikj->ik", delta, input_partial)
 
         return weight_gradient, delta
