@@ -46,6 +46,19 @@ class Sigmoid():
         return x
 
 
+class Tanh():
+
+    def __call__(self, x):
+        x = np.tanh(x)
+
+        return x
+
+    def derivative(self, x):
+        x = 1 - x**2
+
+        return x
+
+
 class Identity():
 
     def __call__(self, x):
