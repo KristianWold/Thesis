@@ -42,7 +42,6 @@ def fisher_information_matrix(network, x, y):
 def trajectory_length(x):
     diff = (x[1:] - x[:-1])
     diff = np.append(diff, (x[0] - x[-1]).reshape(1, -1), axis=0)
-    print(diff.shape, x[0] - x[-1])
     accum = np.sum(diff**2, axis=1)
     accum = np.sum(np.sqrt(accum))
     return accum

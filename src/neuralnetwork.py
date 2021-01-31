@@ -1,31 +1,43 @@
 import numpy as np
 import qiskit as qk
+import pickle
+from tqdm.notebook import tqdm
+
 from optimizers import *
 from layers import *
+from utils import *
 
 
 class NeuralNetwork():
-    def __init__(self, layers, optimizer):
+    def __init__(self, layers=None, optimizer=None):
         self.layers = layers
         self.dim = []
         self.optimizer = optimizer
 
-        for layer in self.layers:
-            self.dim.append(layer.weight.shape)
+        if not self.layers == None:
+            for layer in self.layers:
+                self.dim.append(layer.weight.shape)
 
-        self.optimizer.initialize(self.dim)
+        if not self.optimizer == None:
+            self.optimizer.initialize(self.dim)
+
         self.a = []
         self.weight_gradient_list = []
 
-    def __call__(self, x):
+    def __call__(self, x, verbose=False):
+        if verbose:
+            dec = tqdm
+        else:
+            dec = identity
+
         self.a = []
         self.a.append(x)
-        for layer in self.layers:
+        for layer in dec(self.layers):
             x = layer(x)
             self.a.append(x)
 
-    def predict(self, x):
-        self(x)
+    def predict(self, x, verbose=False):
+        self(x, verbose=verbose)
         return self.a[-1]
 
     def backward(self, x, y, samplewise=False):
@@ -48,6 +60,16 @@ class NeuralNetwork():
         for layer, grad in zip(self.layers, weight_gradient_modified):
             layer.weight += -self.optimizer.lr * grad
 
+    def train(self, x, y, epochs=100, verbose=False):
+        if verbose:
+            dec = tqdm
+        else:
+            dec = identity
+
+        for i in dec(range(epochs)):
+            self.backward(x, y)
+            self.step()
+
     def deriv(self, x):
         self.weight_gradient_list = []
 
@@ -63,8 +85,14 @@ class NeuralNetwork():
         for layer in self.layers:
             layer.shots = shots
 
+    def save(self, filename):
+        pickle.dump(self, open(filename, "wb"))
 
-def sequential(dim, backend, reps=1, shots=1000):
+    def load(self, filename):
+        self = pickle.load(open(filename, "rb"))
+
+
+def sequential(dim, type, backend, reps=1, shots=1000):
     layers = []
     for i in range(len(dim) - 2):
         in_dim = dim[i]
