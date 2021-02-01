@@ -10,7 +10,7 @@ class Ansatz():
         storage = registers[0]
 
         for i, w in enumerate(weight):
-            circuit.ry(2 * w, storage[i])
+            circuit.ry(w, storage[i])
 
         for i in range(n - 1):
             circuit.cx(storage[i], storage[i + 1])
@@ -25,7 +25,7 @@ class Encoder():
         n_qubits = storage.size
 
         for i, w in enumerate(inputs):
-            circuit.ry(2 * w, storage[i % n_qubits])
+            circuit.ry(w, storage[i % n_qubits])
 
         for i in range(n_qubits - 1):
             circuit.cx(storage[i], storage[i + 1])
@@ -115,7 +115,8 @@ class QLayer():
         self.backend = backend
         self.shots = shots
 
-        self.weight = np.random.uniform(0, np.pi, (reps * n_qubits, n_targets))
+        self.weight = np.random.uniform(
+            0, 2 * np.pi, (reps * n_qubits, n_targets))
 
     def __call__(self, inputs):
         outputs = []
@@ -164,18 +165,18 @@ class QLayer():
         input_partial = np.zeros((n_samples, self.n_features, self.n_targets))
 
         for i in range(self.reps * self.n_qubits):
-            self.weight[i, :] += np.pi / 4
-            weight_partial[:, i, :] = 1 / np.sqrt(2) * self(inputs)
-            self.weight[i, :] += -np.pi / 2
-            weight_partial[:, i, :] += -1 / np.sqrt(2) * self(inputs)
-            self.weight[i, :] += np.pi / 4
+            self.weight[i, :] += np.pi / 2
+            weight_partial[:, i, :] = self(inputs)
+            self.weight[i, :] += -np.pi
+            weight_partial[:, i, :] += -self(inputs)
+            self.weight[i, :] += np.pi / 2
 
         for i in range(self.n_features):
-            inputs[:, i] += np.pi / 4
-            input_partial[:, i, :] = 1 / np.sqrt(2) * self(inputs)
-            inputs[:, i] += -np.pi / 2
-            input_partial[:, i, :] += -1 / np.sqrt(2) * self(inputs)
-            inputs[:, i] += np.pi / 4
+            inputs[:, i] += np.pi / 2
+            input_partial[:, i, :] = self(inputs)
+            inputs[:, i] += -np.pi
+            input_partial[:, i, :] += -self(inputs)
+            inputs[:, i] += np.pi / 2
 
         weight_gradient = weight_partial * delta.reshape(n_samples, 1, -1)
         if not samplewise:
