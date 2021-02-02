@@ -71,36 +71,47 @@ class Identity():
 
 
 class Dense():
-    def __init__(self, n_features=None, n_targets=None, scale=1, activation=None):
+    def __init__(self, n_features=None, n_targets=None, scale=1, activation=None, bias=True):
 
         self.n_features = n_features
         self.n_targets = n_targets
         self.scale = scale
         self.activation = activation
+        self.bias = bias
 
-        std = 1 / np.sqrt(n_targets)
-        self.weight = np.random.uniform(-std, std, (n_features + 1, n_targets))
+        self.randomize_weight()
 
     def __call__(self, inputs):
-        x = inputs @ self.weight[:-1] + self.weight[-1].reshape(1, -1)
+        x = inputs @ self.weight[:self.n_features]
+        if self.bias:
+            x += self.weight[-1].reshape(1, -1)
+
         x = self.activation(x)
 
         return self.scale * x
 
-    def grad(self, inputs, delta):
+    def grad(self, inputs, delta, samplewise=False):
         n_samples = inputs.shape[0]
         output = self(inputs)
         delta = self.activation.derivative(output) * delta
 
-        weight_gradient = 1 / n_samples * inputs.T @ delta
-        bias_gradient = np.mean(delta, axis=0, keepdims=True)
+        if not samplewise:
+            weight_gradient = 1 / n_samples * inputs.T @ delta
+        else:
+            weight_gradient = np.einsum("ji,jk->jik", inputs, delta)
 
-        weight_gradient = np.concatenate(
-            (weight_gradient, bias_gradient), axis=0)
+        if self.bias:
+            bias_gradient = np.mean(delta, axis=0, keepdims=True)
+            weight_gradient = np.concatenate(
+                (weight_gradient, bias_gradient), axis=0)
 
-        delta = delta @ self.weight[:-1].T
+        delta = delta @ self.weight[:self.n_features].T
 
         return weight_gradient, delta
+
+    def randomize_weight(self):
+        self.weight = np.random.normal(
+            0, 1, (self.n_features + self.bias, self.n_targets))
 
 
 class QLayer():
@@ -115,8 +126,7 @@ class QLayer():
         self.backend = backend
         self.shots = shots
 
-        self.weight = np.random.uniform(
-            0, 2 * np.pi, (reps * n_qubits, n_targets))
+        self.randomize_weight()
 
     def __call__(self, inputs):
         outputs = []
@@ -166,16 +176,16 @@ class QLayer():
 
         for i in range(self.reps * self.n_qubits):
             self.weight[i, :] += np.pi / 2
-            weight_partial[:, i, :] = self(inputs)
+            weight_partial[:, i, :] = 1 / (2 * np.sqrt(2)) * self(inputs)
             self.weight[i, :] += -np.pi
-            weight_partial[:, i, :] += -self(inputs)
+            weight_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
             self.weight[i, :] += np.pi / 2
 
         for i in range(self.n_features):
             inputs[:, i] += np.pi / 2
-            input_partial[:, i, :] = self(inputs)
+            input_partial[:, i, :] = 1 / (2 * np.sqrt(2)) * self(inputs)
             inputs[:, i] += -np.pi
-            input_partial[:, i, :] += -self(inputs)
+            input_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
             inputs[:, i] += np.pi / 2
 
         weight_gradient = weight_partial * delta.reshape(n_samples, 1, -1)
@@ -185,3 +195,7 @@ class QLayer():
         delta = np.einsum("ij,ikj->ik", delta, input_partial)
 
         return weight_gradient, delta
+
+    def randomize_weight(self):
+        self.weight = np.random.uniform(
+            0, 2 * np.pi, (self.reps * self.n_qubits, self.n_targets))

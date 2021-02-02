@@ -40,12 +40,17 @@ class NeuralNetwork():
         self(x, verbose=verbose)
         return self.a[-1]
 
-    def backward(self, x, y, samplewise=False):
+    def backward(self, x, y=None, samplewise=False, include_loss=True):
+        n_samples = x.shape[0]
         self.weight_gradient_list = []
 
         self(x)
         y_pred = self.a[-1]
-        delta = (y_pred - y)
+
+        if include_loss:
+            delta = (y_pred - y)
+        else:
+            delta = np.ones((n_samples, 1))
 
         for i, layer in reversed(list(enumerate(self.layers))):
             weight_gradient, delta = layer.grad(
@@ -70,6 +75,11 @@ class NeuralNetwork():
             self.backward(x, y)
             self.step()
 
+            if verbose:
+                y_pred = self.predict(x)
+                loss = np.mean((y_pred - y)**2)
+                print(loss)
+
     def deriv(self, x):
         self.weight_gradient_list = []
 
@@ -80,6 +90,18 @@ class NeuralNetwork():
             weight_gradient, delta = layer.grad(self.a[i], delta)
 
         return delta
+
+    @property
+    def weight(self):
+        weight_list = []
+        for layer in self.layers:
+            weight_list.append(layer.weight)
+
+        return weight_list
+
+    def randomize_weight(self):
+        for layer in self.layers:
+            layer.randomize_weight()
 
     def set_shots(self, shots):
         for layer in self.layers:

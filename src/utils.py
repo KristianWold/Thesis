@@ -30,3 +30,13 @@ def loader(filename):
     object = pickle.load(open(filename, "rb"))
 
     return object
+
+
+def unpack_list(list_):
+    list_flat = []
+    for l in list_:
+        list_flat.append(l.flatten())
+
+    list_flat = np.concatenate(list_flat).reshape(-1, 1)
+
+    return list_flat

@@ -1,8 +1,9 @@
 import numpy as np
 import qiskit as qk
 from copy import deepcopy
-from neuralnetwork import *
 from tqdm.notebook import tqdm
+from neuralnetwork import *
+from utils import *
 
 
 def fisher_information_matrix(network, x, y):
@@ -37,6 +38,26 @@ def fisher_information_matrix(network, x, y):
     fr = weight_list.T @ fim @ weight_list
 
     return fim, fr
+
+
+class FIM():
+    def __init__(self, model):
+        self.model = model
+        self.fim = None
+
+    def fit(self, x):
+        n_samples = x.shape[0]
+
+        self.model.backward(x, samplewise=True, include_loss=False)
+        gradient = self.model.weight_gradient_list
+
+        gradient_flattened = []
+        for grad in gradient:
+            gradient_flattened.append(grad.reshape(n_samples, -1))
+
+        gradient_flattened = np.concatenate(gradient_flattened, axis=1)
+
+        self.fim = 1 / n_samples * gradient_flattened.T @ gradient_flattened
 
 
 def trajectory_length(x):
