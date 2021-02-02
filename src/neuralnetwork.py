@@ -76,9 +76,10 @@ class NeuralNetwork():
             self.step()
 
             if verbose:
-                y_pred = self.predict(x)
-                loss = np.mean((y_pred - y)**2)
-                print(loss)
+                if i % (epochs // 10) == 0:
+                    y_pred = self.predict(x)
+                    loss = np.mean((y_pred - y)**2)
+                    print(f"epoch: {i}, loss: {loss}")
 
     def deriv(self, x):
         self.weight_gradient_list = []
