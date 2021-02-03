@@ -59,6 +59,9 @@ class FIM():
 
         self.fim = 1 / n_samples * gradient_flattened.T @ gradient_flattened
 
+    def save(self, filename):
+        pickle.dump(self, open(filename, "wb"))
+
 
 def trajectory_length(x):
     diff = (x[1:] - x[:-1])

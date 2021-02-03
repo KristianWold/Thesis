@@ -98,7 +98,9 @@ class Dense():
         if not samplewise:
             weight_gradient = 1 / n_samples * inputs.T @ delta
         else:
-            weight_gradient = np.einsum("ji,jk->jik", inputs, delta)
+            weight_gradient = [a.reshape(-1, 1) @ b.reshape(1, -1)
+                               for a, b in zip(inputs, delta)]
+            weight_gradient = np.array(weight_gradient)
 
         if self.bias:
             bias_gradient = np.mean(delta, axis=0, keepdims=True)
@@ -110,8 +112,12 @@ class Dense():
         return weight_gradient, delta
 
     def randomize_weight(self):
-        self.weight = np.random.normal(
-            0, 1, (self.n_features + self.bias, self.n_targets))
+        # self.weight = np.random.normal(
+        #    0, 1, (self.n_features + self.bias, self.n_targets))
+
+        std = 1 / np.sqrt(self.n_targets)
+        self.weight = np.random.uniform(
+            -std, std, (self.n_features + self.bias, self.n_targets))
 
 
 class QLayer():
@@ -153,7 +159,7 @@ class QLayer():
                                    backend=self.backend,
                                    shots=self.shots,
                                    max_parallel_shots=1,
-                                   max_parallel_experiments=0
+                                   max_parallel_experiments=23
                                    )
         job = self.backend.run(qobject_list)
 
