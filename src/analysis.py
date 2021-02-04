@@ -59,6 +59,11 @@ class FIM():
 
         self.fim = 1 / n_samples * gradient_flattened.T @ gradient_flattened
 
+    def eigen(self):
+        self.eigen = np.linalg.eig(self.fim)[0]
+        self.eigen[::-1].sort()
+        return self.eigen
+
     def save(self, filename):
         pickle.dump(self, open(filename, "wb"))
 
@@ -66,6 +71,14 @@ class FIM():
 def trajectory_length(x):
     diff = (x[1:] - x[:-1])
     diff = np.append(diff, (x[0] - x[-1]).reshape(1, -1), axis=0)
+    accum = np.sum(diff**2, axis=1)
+    accum = np.sum(np.sqrt(accum))
+    return accum
+
+
+def trajectory_curvature(x):
+    diff = (x[1:] - x[:-1])
+    dot = np.matmul()
     accum = np.sum(diff**2, axis=1)
     accum = np.sum(np.sqrt(accum))
     return accum

@@ -2,9 +2,9 @@ import pickle
 import os
 
 
-PROJECT_ROOT_DIR = "../results"
-DATA_ID = "../results/data"
-FIGURE_ID = "../results/figures"
+PROJECT_ROOT_DIR = "../../results"
+DATA_ID = "../../results/data"
+FIGURE_ID = "../../results/figures"
 
 if not os.path.exists(PROJECT_ROOT_DIR):
     os.mkdir(PROJECT_ROOT_DIR)
@@ -24,6 +24,10 @@ def data_path(data_id):
 
 def identity(func):
     return func
+
+
+def saver(object, filename):
+    pickle.dump(object, open(filename, "wb"))
 
 
 def loader(filename):

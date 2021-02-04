@@ -46,6 +46,19 @@ class Sigmoid():
         return x
 
 
+class ReLu():
+
+    def __call__(self, x):
+        x = np.minimum(0, x)
+
+        return x
+
+    def derivative(self, x):
+        x = x * (1 - x)
+
+        return x
+
+
 class Tanh():
 
     def __call__(self, x):
@@ -112,12 +125,12 @@ class Dense():
         return weight_gradient, delta
 
     def randomize_weight(self):
-        # self.weight = np.random.normal(
-        #    0, 1, (self.n_features + self.bias, self.n_targets))
+        self.weight = np.random.normal(
+            0, 1, (self.n_features + self.bias, self.n_targets))
 
-        std = 1 / np.sqrt(self.n_targets)
-        self.weight = np.random.uniform(
-            -std, std, (self.n_features + self.bias, self.n_targets))
+        #std = 1 / np.sqrt(self.n_targets)
+        # self.weight = np.random.uniform(
+        #    -std, std, (self.n_features + self.bias, self.n_targets))
 
 
 class QLayer():
