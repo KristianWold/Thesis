@@ -116,18 +116,19 @@ class NeuralNetwork():
         self = pickle.load(open(filename, "rb"))
 
 
-def sequential(dim, type, backend, reps=1, shots=1000):
+def sequential_qnn(q_bits=None, dim=None, reps=None, scale=None, backend=None, shots=None):
+    L = len(dim)
+    if scale == None:
+        scale = (L - 2) * [2 * np.pi]
+        scale = scale + [1]
+
     layers = []
-    for i in range(len(dim) - 2):
+    for i in range(L - 1):
         in_dim = dim[i]
         out_dim = dim[i + 1]
-        layer = QLayer(n_qubits=in_dim, n_features=in_dim, n_targets=out_dim, encoder=Encoder(
-        ), ansatz=Ansatz(), reps=reps, scale=np.pi, backend=backend, shots=shots)
+        layer = QLayer(n_qubits=q_bits[i], n_features=in_dim, n_targets=out_dim, encoder=Encoder(
+        ), ansatz=Ansatz(), reps=reps, scale=scale[i], backend=backend, shots=shots)
         layers.append(layer)
-
-    layer = QLayer(n_qubits=dim[-2], n_features=dim[-2], n_targets=dim[-1], encoder=Encoder(
-    ), ansatz=Ansatz(), reps=reps, scale=1, backend=backend, shots=shots)
-    layers.append(layer)
 
     optimizer = Adam(lr=0.01)
     network = NeuralNetwork(layers, optimizer)
