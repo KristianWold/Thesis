@@ -111,8 +111,8 @@ class Dense():
         if not samplewise:
             weight_gradient = 1 / n_samples * inputs.T @ delta
         else:
-            weight_gradient = [a.reshape(-1, 1) @ b.reshape(1, -1)
-                               for a, b in zip(inputs, delta)]
+            weight_gradient = [np.outer(input_, delta_)
+                               for input_, delta_ in zip(inputs, delta)]
             weight_gradient = np.array(weight_gradient)
 
         if self.bias:
