@@ -28,7 +28,7 @@ class FIM():
     def eigen(self):
         self.eigen = np.linalg.eig(self.fim)[0]
         self.eigen[::-1].sort()
-        return self.eigen
+        return np.abs(self.eigen)
 
     def fisher_rao(self):
         weight = self.model.weight
@@ -41,7 +41,7 @@ class FIM():
 
         fr = weight.T @ self.fim @ weight
 
-        return fr
+        return fr[0][0]
 
 
 def trajectory_length(x):

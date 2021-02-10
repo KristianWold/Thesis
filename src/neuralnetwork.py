@@ -116,7 +116,7 @@ class NeuralNetwork():
         self = pickle.load(open(filename, "rb"))
 
 
-def sequential_qnn(q_bits=None, dim=None, reps=None, scale=None, backend=None, shots=None):
+def sequential_qnn(q_bits=None, dim=None, reps=None, scale=None, backend=None, shots=None, lr=0.01):
     L = len(dim)
     if scale == None:
         scale = (L - 2) * [2 * np.pi]
@@ -130,7 +130,24 @@ def sequential_qnn(q_bits=None, dim=None, reps=None, scale=None, backend=None, s
         ), ansatz=Ansatz(), reps=reps, scale=scale[i], backend=backend, shots=shots)
         layers.append(layer)
 
-    optimizer = Adam(lr=0.01)
+    optimizer = Adam(lr=lr)
+    network = NeuralNetwork(layers, optimizer)
+
+    return network
+
+
+def sequential_dnn(dim=None, bias=True, lr=0.01):
+    L = len(dim)
+
+    layers = []
+    for i in range(L - 1):
+        in_dim = dim[i]
+        out_dim = dim[i + 1]
+        layer = Dense(n_features=in_dim, n_targets=out_dim,
+                      activation=Sigmoid(), bias=bias)
+        layers.append(layer)
+
+    optimizer = Adam(lr=lr)
     network = NeuralNetwork(layers, optimizer)
 
     return network
