@@ -144,6 +144,7 @@ class QLayer():
         self.ansatz = ansatz
         self.backend = backend
         self.shots = shots
+        self.last_layer = False
 
         self.randomize_weight()
 
@@ -200,18 +201,19 @@ class QLayer():
             weight_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
             self.weight[i, :] += np.pi / 2
 
-        for i in range(self.n_features):
-            inputs[:, i] += np.pi / 2
-            input_partial[:, i, :] = 1 / (2 * np.sqrt(2)) * self(inputs)
-            inputs[:, i] += -np.pi
-            input_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
-            inputs[:, i] += np.pi / 2
-
         weight_gradient = weight_partial * delta.reshape(n_samples, 1, -1)
         if not samplewise:
             weight_gradient = np.mean(weight_gradient, axis=0)
 
-        delta = np.einsum("ij,ikj->ik", delta, input_partial)
+        if not self.last_layer:
+            for i in range(self.n_features):
+                inputs[:, i] += np.pi / 2
+                input_partial[:, i, :] = 1 / (2 * np.sqrt(2)) * self(inputs)
+                inputs[:, i] += -np.pi
+                input_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
+                inputs[:, i] += np.pi / 2
+
+            delta = np.einsum("ij,ikj->ik", delta, input_partial)
 
         return weight_gradient, delta
 

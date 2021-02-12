@@ -11,6 +11,7 @@ from utils import *
 class NeuralNetwork():
     def __init__(self, layers=None, optimizer=None):
         self.layers = layers
+        self.layers[0].last_layer = True
         self.dim = []
         self.optimizer = optimizer
 
