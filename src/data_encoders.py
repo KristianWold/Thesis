@@ -4,30 +4,42 @@ from math import ceil
 from math import floor
 
 
-def calculate_rotation(data, i, j):
-    n = int(np.log2(len(data)))
+class Encoder():
+    def __call__(self, circuit, data_register, data):
+        n_qubits = data_register.size
 
-    idx1 = (2 * j + 1) * 2**(n - i - 1)
-    idx2 = (j + 1) * 2**(n - i)
-    idx3 = j * 2**(n - i)
-    idx4 = (j + 1) * 2**(n - i)
+        for i, x in enumerate(data):
+            circuit.ry(x, data_register[i % n_qubits])
 
-    if i == n - 1:
-        a1 = data[idx1]
-    else:
-        a1 = np.sqrt(np.sum(np.abs(data[idx1:idx2])**2))
+        for i in range(n_qubits - 1):
+            circuit.cx(data_register[i], data_register[i + 1])
 
-    a2 = np.sqrt(np.sum(np.abs(data[idx3:idx4])**2))
-    if a2 == 0:
-        return 0
-    else:
-        return 2 * np.arcsin(a1 / a2)
+        return circuit
 
 
-def interger_to_binary(integer, digits):
-    binary = [int(b) for b in bin(integer)[2:]]
-    binary = (digits - len(binary)) * [0] + binary
-    return binary
+class ParallelEncoder():
+    def __call__(self, circuit, data_register, ancilla, data):
+        n_samples, n_features = data.shape
+        n_ancilla = ancilla.size
+
+        circuit.h(ancilla)
+        binary_ref = n_ancilla * [0]
+        for i in range(n_samples):
+            binary = interger_to_binary(i, n_ancilla)
+            for j, (b, b_ref) in enumerate(zip(binary, binary_ref)):
+                if b != b_ref:
+                    circuit.x(ancilla[j])
+
+            for j in range(n_features):
+                circuit.mcry(data[i, j], ancilla,
+                             data_register[j], [], mode='noancilla')
+
+            binary_ref = binary
+
+        for i in range(n_features - 1):
+            circuit.cx(data_register[i], data_register[i + 1])
+
+        return circuit
 
 
 def amplitude_encoding(data, circuit, reg, inverse=False):
@@ -115,6 +127,36 @@ def basis_encoding(x):
 
     circuit.measure(storage_reg, clas_reg)
     return circuit
+
+
+# helper functions
+################################################
+
+
+def calculate_rotation(data, i, j):
+    n = int(np.log2(len(data)))
+
+    idx1 = (2 * j + 1) * 2**(n - i - 1)
+    idx2 = (j + 1) * 2**(n - i)
+    idx3 = j * 2**(n - i)
+    idx4 = (j + 1) * 2**(n - i)
+
+    if i == n - 1:
+        a1 = data[idx1]
+    else:
+        a1 = np.sqrt(np.sum(np.abs(data[idx1:idx2])**2))
+
+    a2 = np.sqrt(np.sum(np.abs(data[idx3:idx4])**2))
+    if a2 == 0:
+        return 0
+    else:
+        return 2 * np.arcsin(a1 / a2)
+
+
+def interger_to_binary(integer, digits):
+    binary = [int(b) for b in bin(integer)[2:]]
+    binary = (digits - len(binary)) * [0] + binary
+    return binary
 
 
 def float_to_binary(x, digits=4):

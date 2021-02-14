@@ -2,85 +2,8 @@ import numpy as np
 import qiskit as qk
 from copy import deepcopy
 from optimizers import Adam, GD
-
-
-class Ansatz():
-    def __call__(self, circuit, registers, weight):
-        n = weight.shape[0]
-        storage = registers[0]
-
-        for i, w in enumerate(weight):
-            circuit.ry(w, storage[i])
-
-        for i in range(n - 1):
-            circuit.cx(storage[i], storage[i + 1])
-
-        return circuit
-
-
-class Encoder():
-    def __call__(self, circuit, registers, inputs):
-        n = inputs.shape[0]
-        storage = registers[0]
-        n_qubits = storage.size
-
-        for i, w in enumerate(inputs):
-            circuit.ry(w, storage[i % n_qubits])
-
-        for i in range(n_qubits - 1):
-            circuit.cx(storage[i], storage[i + 1])
-
-        return circuit
-
-
-class Sigmoid():
-
-    def __call__(self, x):
-        x = 1 / (1 + np.exp(-x))
-
-        return x
-
-    def derivative(self, x):
-        x = x * (1 - x)
-
-        return x
-
-
-class ReLu():
-
-    def __call__(self, x):
-        x = np.minimum(0, x)
-
-        return x
-
-    def derivative(self, x):
-        x = x * (1 - x)
-
-        return x
-
-
-class Tanh():
-
-    def __call__(self, x):
-        x = np.tanh(x)
-
-        return x
-
-    def derivative(self, x):
-        x = 1 - x**2
-
-        return x
-
-
-class Identity():
-
-    def __call__(self, x):
-
-        return x
-
-    def derivative(self, x):
-
-        return 1
+from data_encoders import *
+from parametrizations import *
 
 
 class Dense():
@@ -154,18 +77,20 @@ class QLayer():
         n_samples = inputs.shape[0]
         for x in inputs:
             for i in range(self.n_targets):
-                storage = qk.QuantumRegister(self.n_qubits, name="storage")
-                clas_reg = qk.ClassicalRegister(1, name="clas_reg")
-                registers = [storage, clas_reg]
+                data_register = qk.QuantumRegister(
+                    self.n_qubits, name="storage")
+                clas_register = qk.ClassicalRegister(1, name="clas_reg")
+                registers = [data_register, clas_register]
                 circuit = qk.QuantumCircuit(*registers)
 
-                self.encoder(circuit, registers, x)
+                self.encoder(circuit, data_register, x)
                 for j in range(self.reps):
                     start = j * self.n_qubits
                     end = (j + 1) * self.n_qubits
-                    self.ansatz(circuit, registers, self.weight[start:end, i])
+                    self.ansatz(circuit, data_register,
+                                self.weight[start:end, i])
 
-                circuit.measure(storage[-1], clas_reg)
+                circuit.measure(data_register[-1], clas_register)
                 circuit_list.append(circuit)
 
         transpiled_list = qk.transpile(circuit_list, backend=self.backend)
@@ -220,3 +145,53 @@ class QLayer():
     def randomize_weight(self):
         self.weight = np.random.uniform(
             0, 2 * np.pi, (self.reps * self.n_qubits, self.n_targets))
+
+
+class Sigmoid():
+
+    def __call__(self, x):
+        x = 1 / (1 + np.exp(-x))
+
+        return x
+
+    def derivative(self, x):
+        x = x * (1 - x)
+
+        return x
+
+
+class ReLu():
+
+    def __call__(self, x):
+        x = np.minimum(0, x)
+
+        return x
+
+    def derivative(self, x):
+        x = x * (1 - x)
+
+        return x
+
+
+class Tanh():
+
+    def __call__(self, x):
+        x = np.tanh(x)
+
+        return x
+
+    def derivative(self, x):
+        x = 1 - x**2
+
+        return x
+
+
+class Identity():
+
+    def __call__(self, x):
+
+        return x
+
+    def derivative(self, x):
+
+        return 1

@@ -6,6 +6,7 @@ from tqdm.notebook import tqdm
 from optimizers import *
 from layers import *
 from utils import *
+from parametrizations import *
 
 
 class NeuralNetwork():
