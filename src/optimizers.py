@@ -33,8 +33,8 @@ class Adam():
         weight_gradient_modified = []
 
         for grad, m_, v_ in zip(weight_gradient_list, self.m, self.v):
-            m_[:, :] = self.beta1 * m_ + (1 - self.beta1) * grad
-            v_[:, :] = self.beta2 * v_ + (1 - self.beta2) * grad**2
+            m_[:] = self.beta1 * m_ + (1 - self.beta1) * grad
+            v_[:] = self.beta2 * v_ + (1 - self.beta2) * grad**2
 
             m_hat = m_ / (1 - self.beta1**self.t)
             v_hat = v_ / (1 - self.beta2**self.t)

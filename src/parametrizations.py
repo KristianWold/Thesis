@@ -30,19 +30,51 @@ class SwapTest():
 
 
 class ParallelModel():
-    def __init__(self, backend=None, shots=1000):
+    def __init__(self, n_features=None, n_targets=None, reps=1,  backend=None, shots=1000):
         self.parallel_encoder = ParallelEncoder()
         self.encoder = Encoder()
         self.ansatz = Ansatz()
         self.swap_test = SwapTest()
 
-        self.theta = np.array([1., 2.])
+        self.n_features = n_features
+        self.n_targets = n_targets
+        self.reps = reps
+
+        self.theta = np.random.uniform(
+            0, 2 * np.pi, self.n_features * self.reps)
         self.backend = backend
         self.shots = shots
 
+    def predict(self, x):
+        n_samples, _ = x.shape
+        y_pred = []
+        for i, x_ in enumerate(x):
+            features = qk.QuantumRegister(self.n_features, name="features")
+            classical = qk.ClassicalRegister(1)
+            registers = [features, classical]
+            circuit = qk.QuantumCircuit(*registers)
+
+            circuit = self.encoder(circuit, features, x_)
+            for i in range(self.reps):
+                start = i * self.n_features
+                end = (i + 1) * self.n_features
+                circuit = self.ansatz(circuit, features, self.theta[start:end])
+
+            circuit.measure(features[-1], classical)
+
+            job = qk.execute(circuit, self.backend, shots=self.shots)
+            counts = job.result().get_counts(circuit)
+            if "0" in counts:
+                y_pred.append(
+                    [2 * np.arccos(np.sqrt(counts["0"] / self.shots))])
+            else:
+                y_pred.append([0])
+
+        return np.array(y_pred)
+
     def loss(self, x, y):
         n_samples, n_features = x.shape
-        _, n_targets = x.shape
+        _, n_targets = y.shape
         n_ancilla = np.log2(n_samples)
 
         features = qk.QuantumRegister(n_features, name="features")
@@ -63,7 +95,10 @@ class ParallelModel():
         circuit = self.parallel_encoder(circuit, features, ancilla_features, x)
         circuit = self.parallel_encoder(circuit, targets, ancilla_targets, y)
 
-        circuit = self.ansatz(circuit, features, self.theta)
+        for i in range(self.reps):
+            start = i * self.n_features
+            end = (i + 1) * self.n_features
+            circuit = self.ansatz(circuit, features, self.theta[start:end])
 
         register_a = [features[-1]] + ancilla_features[:]
         register_b = targets[:] + ancilla_targets[:]
@@ -78,7 +113,7 @@ class ParallelModel():
         else:
             loss = 0
 
-        return loss
+        return 2 * (loss + 1)
 
     def gradient(self, x, y):
         weight_gradient = np.zeros_like(self.theta)

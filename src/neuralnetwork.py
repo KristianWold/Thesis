@@ -28,13 +28,13 @@ class NeuralNetwork():
 
     def __call__(self, x, verbose=False):
         if verbose:
-            dec = tqdm
+            decerator = tqdm
         else:
-            dec = identity
+            decerator = identity
 
         self.a = []
         self.a.append(x)
-        for layer in dec(self.layers):
+        for layer in decerator(self.layers):
             x = layer(x)
             self.a.append(x)
 
