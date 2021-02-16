@@ -9,11 +9,11 @@ class Ansatz():
     def __call__(self, circuit, data_register, weight):
         n_qubits = data_register.size
 
-        for i, w in enumerate(weight):
-            circuit.ry(w, data_register[i])
-
         for i in range(n_qubits - 1):
             circuit.cx(data_register[i], data_register[i + 1])
+
+        for i, w in enumerate(weight):
+            circuit.ry(w, data_register[i])
 
         return circuit
 
@@ -72,7 +72,7 @@ class ParallelModel():
                 y_pred.append(
                     [2 * np.arccos(np.sqrt(counts["0"] / self.shots))])
             else:
-                y_pred.append([0])
+                y_pred.append([np.pi])
 
         return np.array(y_pred)
 
@@ -112,7 +112,6 @@ class ParallelModel():
             circuit.cx(features[i], predictions)
 
         register_a = predictions[:] + ancilla_features[:]
-        #register_a = [features[-1]] + ancilla_features[:]
         register_b = targets[:] + ancilla_targets[:]
         circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
 

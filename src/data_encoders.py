@@ -39,8 +39,8 @@ class ParallelEncoder():
 
         circuit.x(ancilla)
 
-        for i in range(n_features - 1):
-            circuit.cx(data_register[i], data_register[i + 1])
+        # for i in range(n_features - 1):
+        #    circuit.cx(data_register[i], data_register[i + 1])
 
         return circuit
 
