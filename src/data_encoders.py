@@ -26,6 +26,7 @@ class ParallelEncoder():
         binary_ref = n_ancilla * [0]
         for i in range(n_samples):
             binary = interger_to_binary(i, n_ancilla)
+
             for j, (b, b_ref) in enumerate(zip(binary, binary_ref)):
                 if b != b_ref:
                     circuit.x(ancilla[j])
@@ -35,6 +36,8 @@ class ParallelEncoder():
                              data_register[j], [], mode='noancilla')
 
             binary_ref = binary
+
+        circuit.x(ancilla)
 
         for i in range(n_features - 1):
             circuit.cx(data_register[i], data_register[i + 1])

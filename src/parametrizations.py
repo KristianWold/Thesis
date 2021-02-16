@@ -46,12 +46,13 @@ class ParallelModel():
         self.shots = shots
 
     def predict(self, x):
-        n_samples, _ = x.shape
+        n_samples, n_features = x.shape
         y_pred = []
         for i, x_ in enumerate(x):
             features = qk.QuantumRegister(self.n_features, name="features")
+            predictions = qk.QuantumRegister(1, name="predictions")
             classical = qk.ClassicalRegister(1)
-            registers = [features, classical]
+            registers = [features, predictions, classical]
             circuit = qk.QuantumCircuit(*registers)
 
             circuit = self.encoder(circuit, features, x_)
@@ -60,7 +61,10 @@ class ParallelModel():
                 end = (i + 1) * self.n_features
                 circuit = self.ansatz(circuit, features, self.theta[start:end])
 
-            circuit.measure(features[-1], classical)
+            for i in range(n_features):
+                circuit.cx(features[i], predictions)
+
+            circuit.measure(predictions, classical)
 
             job = qk.execute(circuit, self.backend, shots=self.shots)
             counts = job.result().get_counts(circuit)
@@ -78,6 +82,7 @@ class ParallelModel():
         n_ancilla = np.log2(n_samples)
 
         features = qk.QuantumRegister(n_features, name="features")
+        predictions = qk.QuantumRegister(n_targets, name="predictions")
         ancilla_features = qk.QuantumRegister(
             n_ancilla, name="ancilla_feature")
 
@@ -87,20 +92,27 @@ class ParallelModel():
         ancilla_swap = qk.QuantumRegister(1, name="swap")
         classical = qk.ClassicalRegister(1)
 
-        registers = [features, ancilla_features, targets, ancilla_targets,
-                     ancilla_swap, classical]
+        registers = [features, ancilla_features, predictions, targets,
+                     ancilla_targets, ancilla_swap, classical]
 
         circuit = qk.QuantumCircuit(*registers)
 
         circuit = self.parallel_encoder(circuit, features, ancilla_features, x)
         circuit = self.parallel_encoder(circuit, targets, ancilla_targets, y)
 
+        circuit.barrier()
         for i in range(self.reps):
             start = i * self.n_features
             end = (i + 1) * self.n_features
             circuit = self.ansatz(circuit, features, self.theta[start:end])
 
-        register_a = [features[-1]] + ancilla_features[:]
+        circuit.barrier()
+
+        for i in range(n_features):
+            circuit.cx(features[i], predictions)
+
+        register_a = predictions[:] + ancilla_features[:]
+        #register_a = [features[-1]] + ancilla_features[:]
         register_b = targets[:] + ancilla_targets[:]
         circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
 
