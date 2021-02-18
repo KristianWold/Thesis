@@ -22,7 +22,6 @@ class ParallelEncoder():
         n_samples, n_features = data.shape
         n_ancilla = ancilla.size
 
-        circuit.h(ancilla)
         binary_ref = n_ancilla * [0]
         for i in range(n_samples):
             binary = interger_to_binary(i, n_ancilla)
@@ -32,8 +31,8 @@ class ParallelEncoder():
                     circuit.x(ancilla[j])
 
             for j in range(n_features):
-                circuit.mcry(data[i, j], ancilla,
-                             data_register[j], [], mode='noancilla')
+                circuit.cry(data[i, j], ancilla,
+                            data_register[j])
 
             binary_ref = binary
 

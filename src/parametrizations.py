@@ -68,11 +68,18 @@ class ParallelModel():
 
             job = qk.execute(circuit, self.backend, shots=self.shots)
             counts = job.result().get_counts(circuit)
+            """
             if "0" in counts:
                 y_pred.append(
                     [2 * np.arccos(np.sqrt(counts["0"] / self.shots))])
             else:
                 y_pred.append([np.pi])
+            """
+            if "0" in counts:
+                y_pred.append(
+                    [counts["0"] / self.shots])
+            else:
+                y_pred.append([0])
 
         return np.array(y_pred)
 
@@ -111,11 +118,14 @@ class ParallelModel():
         for i in range(n_features):
             circuit.cx(features[i], predictions)
 
-        register_a = predictions[:] + ancilla_features[:]
-        register_b = targets[:] + ancilla_targets[:]
-        circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
-
+        #register_a = predictions[:] + ancilla_features[:]
+        #register_b = targets[:] + ancilla_targets[:]
+        #circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
+        circuit.cx(predictions, ancilla_swap)
+        circuit.cx(targets, ancilla_swap)
         circuit.measure(ancilla_swap, classical)
+
+        # print(circuit)
 
         job = qk.execute(circuit, self.backend, shots=self.shots)
         counts = job.result().get_counts(circuit)
@@ -124,7 +134,7 @@ class ParallelModel():
         else:
             loss = 0
 
-        return 2 * loss - 1
+        return loss
 
     def gradient(self, x, y):
         weight_gradient = np.zeros_like(self.theta)
