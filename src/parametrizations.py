@@ -9,11 +9,11 @@ class Ansatz():
     def __call__(self, circuit, data_register, weight):
         n_qubits = data_register.size
 
-        for i in range(n_qubits - 1):
-            circuit.cx(data_register[i], data_register[i + 1])
-
         for i, w in enumerate(weight):
             circuit.ry(w, data_register[i])
+
+        for i in range(n_qubits - 1):
+            circuit.cx(data_register[i], data_register[i + 1])
 
         return circuit
 
@@ -120,20 +120,20 @@ class ParallelModel():
         job = qk.execute(circuit, self.backend, shots=self.shots)
         counts = job.result().get_counts(circuit)
         if "0" in counts:
-            loss = -counts["0"] / self.shots
+            loss = counts["0"] / self.shots
         else:
             loss = 0
 
-        return 2 * (loss + 1)
+        return 2 * loss - 1
 
     def gradient(self, x, y):
         weight_gradient = np.zeros_like(self.theta)
 
         for i in range(len(self.theta)):
             self.theta[i] += np.pi / 2
-            weight_gradient[i] += 1 / np.sqrt(2) * self.loss(x, y)
+            weight_gradient[i] += 1 / (2 * np.sqrt(2)) * self.loss(x, y)
             self.theta[i] += -np.pi
-            weight_gradient[i] += -1 / np.sqrt(2) * self.loss(x, y)
+            weight_gradient[i] += -1 / (2 * np.sqrt(2)) * self.loss(x, y)
             self.theta[i] += np.pi / 2
 
         return weight_gradient
