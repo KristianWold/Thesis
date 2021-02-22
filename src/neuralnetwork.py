@@ -75,14 +75,17 @@ class NeuralNetwork():
 
         self.loss = []
         for i in dec(range(epochs)):
-            self.backward(x, y)
-            self.step()
-
             y_pred = self.predict(x)
             self.loss.append(np.mean((y_pred - y)**2))
 
+            self.backward(x, y)
+            self.step()
+
             if verbose:
                 print(f"epoch: {i}, loss: {self.loss[-1]}")
+
+        y_pred = self.predict(x)
+        self.loss.append(np.mean((y_pred - y)**2))
 
     def deriv(self, x):
         self.weight_gradient_list = []

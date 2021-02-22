@@ -1,3 +1,4 @@
+import numpy as np
 import pickle
 import os
 
@@ -44,3 +45,40 @@ def unpack_list(list_):
     list_flat = np.concatenate(list_flat).reshape(-1, 1)
 
     return list_flat
+
+
+def gaussian(x, mean, var):
+    if type(mean) == float:
+        mean = np.array([[mean]])
+
+    if type(var) == float:
+        var = np.array([[var]])
+
+    var_inv = np.linalg.inv(var)
+    diag = np.diag((x - mean) @ var_inv @ (x - mean).T).reshape(-1, 1)
+    y = np.exp(-0.5 * diag)
+
+    return y
+
+
+def random_mixed_gaussian(x, n=3):
+    dim = x.shape[-1]
+    mean = np.random.uniform(0, 1, (n, dim, 1))
+    var = np.random.uniform(-0.01, 0.01, (n, dim, dim))
+    # np.diag(var) = abs(np.diag(var))
+
+    alpha = np.random.uniform(-1, 1, n)
+
+    y = 0
+    for i in range(n):
+        y += alpha[i] * gaussian(x, mean[i], var[i])
+
+    return()
+
+
+def scaler(x, a=0, b=1):
+    x = x - np.min(x, axis=0)
+    x = (b - a) * x / np.max(x, axis=0)
+    x = x + a
+
+    return x
