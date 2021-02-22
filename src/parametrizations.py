@@ -1,3 +1,4 @@
+
 import numpy as np
 import qiskit as qk
 from copy import deepcopy
@@ -66,6 +67,8 @@ class ParallelModel():
 
             circuit.measure(predictions, classical)
 
+            print(circuit)
+
             job = qk.execute(circuit, self.backend, shots=self.shots)
             counts = job.result().get_counts(circuit)
             """
@@ -118,11 +121,11 @@ class ParallelModel():
         for i in range(n_features):
             circuit.cx(features[i], predictions)
 
-        #register_a = predictions[:] + ancilla_features[:]
-        #register_b = targets[:] + ancilla_targets[:]
-        #circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
-        circuit.cx(predictions, ancilla_swap)
-        circuit.cx(targets, ancilla_swap)
+        register_a = predictions[:] + ancilla_features[:]
+        register_b = targets[:] + ancilla_targets[:]
+        circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
+        #circuit.cx(predictions, ancilla_swap)
+        #circuit.cx(targets, ancilla_swap)
         circuit.measure(ancilla_swap, classical)
 
         # print(circuit)
