@@ -7,6 +7,7 @@ from optimizers import *
 from layers import *
 from utils import *
 from parametrizations import *
+from samplers import *
 
 
 class NeuralNetwork():
@@ -132,7 +133,7 @@ def sequential_qnn(q_bits=None, dim=None, reps=None, scale=None, backend=None, s
         in_dim = dim[i]
         out_dim = dim[i + 1]
         layer = QLayer(n_qubits=q_bits[i], n_features=in_dim, n_targets=out_dim, encoder=Encoder(
-        ), ansatz=Ansatz(), reps=reps, scale=scale[i], backend=backend, shots=shots)
+        ), ansatz=Ansatz(), sampler=Parity(), reps=reps, scale=scale[i], backend=backend, shots=shots)
         layers.append(layer)
 
     optimizer = Adam(lr=lr)

@@ -10,11 +10,11 @@ class Ansatz():
     def __call__(self, circuit, data_register, weight):
         n_qubits = data_register.size
 
-        for i, w in enumerate(weight):
-            circuit.ry(w, data_register[i])
-
         for i in range(n_qubits - 1):
             circuit.cx(data_register[i], data_register[i + 1])
+
+        for i, w in enumerate(weight):
+            circuit.ry(w, data_register[i])
 
         return circuit
 

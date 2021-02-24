@@ -57,7 +57,7 @@ class Dense():
 
 
 class QLayer():
-    def __init__(self, n_qubits=None, n_features=None, n_targets=None, reps=1, scale=1, encoder=None, ansatz=None,  backend=None, shots=1000):
+    def __init__(self, n_qubits=None, n_features=None, n_targets=None, reps=1, scale=1, encoder=None, ansatz=None, sampler=None, backend=None, shots=1000):
         self.n_qubits = n_qubits
         self.n_features = n_features
         self.n_targets = n_targets
@@ -65,10 +65,11 @@ class QLayer():
         self.scale = scale
         self.encoder = encoder
         self.ansatz = ansatz
+        self.sampler = sampler
         self.backend = backend
         self.shots = shots
-        self.last_layer = False
 
+        self.last_layer = False
         self.randomize_weight()
 
     def __call__(self, inputs):
@@ -79,7 +80,8 @@ class QLayer():
             for i in range(self.n_targets):
                 data_register = qk.QuantumRegister(
                     self.n_qubits, name="storage")
-                clas_register = qk.ClassicalRegister(1, name="clas_reg")
+                clas_register = qk.ClassicalRegister(
+                    self.n_qubits, name="clas_reg")
                 registers = [data_register, clas_register]
                 circuit = qk.QuantumCircuit(*registers)
 
@@ -90,7 +92,7 @@ class QLayer():
                     self.ansatz(circuit, data_register,
                                 self.weight[start:end, i])
 
-                circuit.measure(data_register[-1], clas_register)
+                circuit.measure(data_register, clas_register)
                 circuit_list.append(circuit)
 
         transpiled_list = qk.transpile(circuit_list, backend=self.backend)
@@ -98,16 +100,13 @@ class QLayer():
                                    backend=self.backend,
                                    shots=self.shots,
                                    max_parallel_shots=1,
-                                   max_parallel_experiments=11
+                                   max_parallel_experiments=0
                                    )
         job = self.backend.run(qobject_list)
 
         for circuit in circuit_list:
             counts = job.result().get_counts(circuit)
-            if "1" in counts:
-                outputs.append(counts["1"] / self.shots)
-            else:
-                outputs.append(0)
+            outputs.append(self.sampler(counts))
 
         outputs = np.array(outputs).reshape(n_samples, -1)
 

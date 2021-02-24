@@ -11,8 +11,10 @@ class Encoder():
         for i, x in enumerate(data):
             circuit.ry(x, data_register[i % n_qubits])
 
+        """
         for i in range(n_qubits - 1):
             circuit.cx(data_register[i], data_register[i + 1])
+        """
 
         return circuit
 

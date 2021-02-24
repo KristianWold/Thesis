@@ -95,3 +95,8 @@ def generate_meshgrid(x):
     x = np.hstack(x)
 
     return x
+
+
+def r2(y_pred, y):
+    y_avg = np.mean(y)
+    return 1 - np.mean((y_pred - y)**2) / np.mean((y - y_avg)**2)
