@@ -57,7 +57,7 @@ class Dense():
 
 
 class QLayer():
-    def __init__(self, n_qubits=None, n_features=None, n_targets=None, reps=1, scale=1, encoder=None, ansatz=None, backend=None, shots=1000):
+    def __init__(self, n_qubits=None, n_features=None, n_targets=None, reps=1, scale=1, encoder=None, ansatz=None,  backend=None, shots=1000):
         self.n_qubits = n_qubits
         self.n_features = n_features
         self.n_targets = n_targets
@@ -98,7 +98,7 @@ class QLayer():
                                    backend=self.backend,
                                    shots=self.shots,
                                    max_parallel_shots=1,
-                                   max_parallel_experiments=23
+                                   max_parallel_experiments=11
                                    )
         job = self.backend.run(qobject_list)
 

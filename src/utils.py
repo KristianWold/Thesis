@@ -61,24 +61,37 @@ def gaussian(x, mean, var):
     return y
 
 
-def random_mixed_gaussian(x, n=3):
+def random_mixed_gaussian(x, n_gaussians=3):
     dim = x.shape[-1]
-    mean = np.random.uniform(0, 1, (n, dim, 1))
-    var = np.random.uniform(-0.01, 0.01, (n, dim, dim))
-    # np.diag(var) = abs(np.diag(var))
+    mean = np.random.uniform(0, 1, (n_gaussians, 1, dim))
 
-    alpha = np.random.uniform(-1, 1, n)
+    var = []
+    for i in range(n_gaussians):
+        var_ = np.random.uniform(-0.001, 0.001, (dim, dim))
+        var_[np.diag_indices(dim)] = np.random.uniform(0.005, 0.05, dim)
+        var.append(var_)
+
+    alpha = np.random.uniform(-1, 1, n_gaussians)
 
     y = 0
-    for i in range(n):
+    for i in range(n_gaussians):
         y += alpha[i] * gaussian(x, mean[i], var[i])
 
-    return()
+    return y
 
 
 def scaler(x, a=0, b=1):
     x = x - np.min(x, axis=0)
     x = (b - a) * x / np.max(x, axis=0)
     x = x + a
+
+    return x
+
+
+def generate_meshgrid(x):
+
+    x = np.meshgrid(*x)
+    x = [np.ravel(x_).reshape(-1, 1) for x_ in x]
+    x = np.hstack(x)
 
     return x
