@@ -9,12 +9,28 @@ class Encoder():
         n_qubits = data_register.size
 
         for i, x in enumerate(data):
-            circuit.ry(x, data_register[i % n_qubits])
+            circuit.ry(x, data_register[i])
 
-        """
+        # for i in range(n_qubits - 1):
+        #    circuit.cx(data_register[i], data_register[i + 1])
+
+        return circuit
+
+
+class RegularizedEncoder():
+    def __call__(self, circuit, data_register, data, theta):
+        n_qubits = data_register.size
+
+        for i, x in enumerate(data):
+            circuit.ry(x, data_register[i + 1])
+
         for i in range(n_qubits - 1):
             circuit.cx(data_register[i], data_register[i + 1])
-        """
+            circuit.ry(theta[i], data_register[i])
+            circuit.cx(data_register[i], data_register[i + 1])
+
+        for i, x in enumerate(data):
+            circuit.ry(-x, data_register[i + 1])
 
         return circuit
 
