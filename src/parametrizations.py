@@ -4,6 +4,7 @@ import qiskit as qk
 from copy import deepcopy
 from optimizers import Adam, GD
 from data_encoders import *
+from samplers import *
 
 
 class Ansatz():
@@ -124,8 +125,8 @@ class ParallelModel():
         register_a = predictions[:] + ancilla_features[:]
         register_b = targets[:] + ancilla_targets[:]
         circuit = self.swap_test(circuit, register_a, register_b, ancilla_swap)
-        #circuit.cx(predictions, ancilla_swap)
-        #circuit.cx(targets, ancilla_swap)
+        # circuit.cx(predictions, ancilla_swap)
+        # circuit.cx(targets, ancilla_swap)
         circuit.measure(ancilla_swap, classical)
 
         # print(circuit)
@@ -148,5 +149,68 @@ class ParallelModel():
             self.theta[i] += -np.pi
             weight_gradient[i] += -1 / (2 * np.sqrt(2)) * self.loss(x, y)
             self.theta[i] += np.pi / 2
+
+        return weight_gradient
+
+
+class RegularizedModel():
+    def __init__(self, n_features=None, n_targets=None, reps=1,  backend=None, shots=1000):
+        self.encoder = RegularizedEncoder()
+        self.ansatz = Ansatz()
+        self.sampler = Parity()
+
+        self.n_features = n_features
+        self.n_targets = n_targets
+        self.reps = reps
+
+        self.n_qubits = n_features + 1
+        self.theta = np.random.uniform(
+            0, 2 * np.pi, self.n_qubits * self.reps + self.n_features)
+        self.theta[:self.n_features] = np.pi
+        self.backend = backend
+        self.shots = shots
+
+    def predict(self, x):
+        y_pred = []
+        for i, x_ in enumerate(x):
+            data_register = qk.QuantumRegister(self.n_qubits)
+            classical = qk.ClassicalRegister(self.n_qubits)
+            registers = [data_register, classical]
+            circuit = qk.QuantumCircuit(*registers)
+
+            circuit = self.encoder(
+                circuit, data_register, x_, self.theta[:self.n_features])
+
+            for i in range(self.reps):
+                start = i * self.n_qubits + self.n_features
+                end = (i + 1) * self.n_qubits + self.n_features
+                circuit = self.ansatz(
+                    circuit, data_register, self.theta[start:end])
+
+            circuit.measure(data_register, classical)
+
+            job = qk.execute(circuit, self.backend, shots=self.shots)
+            counts = job.result().get_counts(circuit)
+            y_pred.append(self.sampler(counts))
+
+        return np.array(y_pred).reshape(-1, 1)
+
+    def gradient(self, x, y):
+        n_samples = x.shape[0]
+        y_pred = self.predict(x)
+        delta = (y_pred - y)
+        weight_gradient = np.zeros((n_samples, len(self.theta)))
+
+        for i in range(len(self.theta)):
+            self.theta[i] += np.pi / 2
+            weight_gradient[:, i] += 1 / \
+                (2 * np.sqrt(2)) * self.predict(x)[:, 0]
+            self.theta[i] += -np.pi
+            weight_gradient[:, i] += -1 / \
+                (2 * np.sqrt(2)) * self.predict(x)[:, 0]
+            self.theta[i] += np.pi / 2
+
+        weight_gradient = weight_gradient * delta
+        weight_gradient = np.mean(weight_gradient, axis=0)
 
         return weight_gradient
