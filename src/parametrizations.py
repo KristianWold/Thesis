@@ -5,6 +5,7 @@ from tqdm.notebook import tqdm
 from optimizers import Adam, GD
 from data_encoders import *
 from samplers import *
+from utils import *
 
 
 class Ansatz():
@@ -154,7 +155,7 @@ class ParallelModel():
 
 
 class RegularizedModel():
-    def __init__(self, n_features=None, n_targets=None, reps=1,  backend=None, shots=1000, optimizer=None):
+    def __init__(self, n_features=None, n_targets=None, reps=1, alpha=None,  backend=None, shots=1000, optimizer=None):
         self.encoder = RegularizedEncoder()
         self.ansatz = Ansatz()
         self.sampler = Parity()
@@ -162,6 +163,7 @@ class RegularizedModel():
         self.n_features = n_features
         self.n_targets = n_targets
         self.reps = reps
+        self.alpha = alpha
         self.backend = backend
         self.shots = shots
         self.optimizer = optimizer
@@ -199,10 +201,6 @@ class RegularizedModel():
 
             circuit_list.append(circuit)
 
-            job = qk.execute(circuit, self.backend, shots=self.shots)
-            counts = job.result().get_counts(circuit)
-            y_pred.append(self.sampler(counts))
-
         transpiled_list = qk.transpile(circuit_list, backend=self.backend)
         qobject_list = qk.assemble(transpiled_list,
                                    backend=self.backend,
@@ -216,7 +214,7 @@ class RegularizedModel():
             counts = job.result().get_counts(circuit)
             outputs.append(self.sampler(counts))
 
-        return np.array(y_pred).reshape(-1, 1)
+        return np.array(outputs).reshape(-1, 1)
 
     def gradient(self, x, y):
         n_samples = x.shape[0]
@@ -255,7 +253,7 @@ class RegularizedModel():
             penalty = np.zeros_like(gradient)
             penalty[:self.n_features] = self.theta[:self.n_features]
 
-            self.theta += -self.optimizer.lr * gradient_mod + 0.001 * penalty
+            self.theta += -self.optimizer.lr * gradient_mod + self.alpha * penalty
 
             if verbose:
                 print(f"epoch: {i}, loss: {self.loss[-1]}")
