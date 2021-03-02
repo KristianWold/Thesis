@@ -1,7 +1,7 @@
-
 import numpy as np
 import qiskit as qk
 from copy import deepcopy
+from tqdm.notebook import tqdm
 from optimizers import Adam, GD
 from data_encoders import *
 from samplers import *
@@ -154,7 +154,7 @@ class ParallelModel():
 
 
 class RegularizedModel():
-    def __init__(self, n_features=None, n_targets=None, reps=1,  backend=None, shots=1000):
+    def __init__(self, n_features=None, n_targets=None, reps=1,  backend=None, shots=1000, optimizer=None):
         self.encoder = RegularizedEncoder()
         self.ansatz = Ansatz()
         self.sampler = Parity()
@@ -162,16 +162,24 @@ class RegularizedModel():
         self.n_features = n_features
         self.n_targets = n_targets
         self.reps = reps
+        self.backend = backend
+        self.shots = shots
+        self.optimizer = optimizer
+
+        self.loss = []
+        self.map_params = []
 
         self.n_qubits = n_features + 1
         self.theta = np.random.uniform(
             0, 2 * np.pi, self.n_qubits * self.reps + self.n_features)
-        self.theta[:self.n_features] = np.pi
-        self.backend = backend
-        self.shots = shots
+        self.theta[:self.n_features] = 0
+
+        if not self.optimizer == None:
+            self.optimizer.initialize(self.theta.shape)
 
     def predict(self, x):
-        y_pred = []
+        outputs = []
+        circuit_list = []
         for i, x_ in enumerate(x):
             data_register = qk.QuantumRegister(self.n_qubits)
             classical = qk.ClassicalRegister(self.n_qubits)
@@ -181,17 +189,32 @@ class RegularizedModel():
             circuit = self.encoder(
                 circuit, data_register, x_, self.theta[:self.n_features])
 
-            for i in range(self.reps):
-                start = i * self.n_qubits + self.n_features
-                end = (i + 1) * self.n_qubits + self.n_features
+            for j in range(self.reps):
+                start = j * self.n_qubits + self.n_features
+                end = (j + 1) * self.n_qubits + self.n_features
                 circuit = self.ansatz(
                     circuit, data_register, self.theta[start:end])
 
             circuit.measure(data_register, classical)
 
+            circuit_list.append(circuit)
+
             job = qk.execute(circuit, self.backend, shots=self.shots)
             counts = job.result().get_counts(circuit)
             y_pred.append(self.sampler(counts))
+
+        transpiled_list = qk.transpile(circuit_list, backend=self.backend)
+        qobject_list = qk.assemble(transpiled_list,
+                                   backend=self.backend,
+                                   shots=self.shots,
+                                   max_parallel_shots=1,
+                                   max_parallel_experiments=0
+                                   )
+        job = self.backend.run(qobject_list)
+
+        for circuit in circuit_list:
+            counts = job.result().get_counts(circuit)
+            outputs.append(self.sampler(counts))
 
         return np.array(y_pred).reshape(-1, 1)
 
@@ -214,3 +237,29 @@ class RegularizedModel():
         weight_gradient = np.mean(weight_gradient, axis=0)
 
         return weight_gradient
+
+    def train(self, x, y, epochs=100, verbose=False):
+        if verbose:
+            dec = tqdm
+        else:
+            dec = identity
+
+        for i in dec(range(epochs)):
+            y_pred = self.predict(x)
+            self.loss.append(np.mean((y_pred - y)**2))
+            self.map_params.append(deepcopy(self.theta[:self.n_features]))
+
+            gradient = self.gradient(x, y)
+            gradient_mod = self.optimizer([gradient])[0]
+
+            penalty = np.zeros_like(gradient)
+            penalty[:self.n_features] = self.theta[:self.n_features]
+
+            self.theta += -self.optimizer.lr * gradient_mod + 0.001 * penalty
+
+            if verbose:
+                print(f"epoch: {i}, loss: {self.loss[-1]}")
+
+        y_pred = self.predict(x)
+        self.loss.append(np.mean((y_pred - y)**2))
+        self.map_params.append(self.theta[:self.n_features])

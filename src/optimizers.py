@@ -18,12 +18,15 @@ class Adam():
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
+        self.m = None
+        self.v = None
+        self.t = None
 
+    def initialize(self, dims):
         self.m = []
         self.v = []
         self.t = 0
 
-    def initialize(self, dims):
         for dim in dims:
             self.m.append(np.zeros(dim))
             self.v.append(np.zeros(dim))
