@@ -179,7 +179,7 @@ class RegularizedModel():
         if self.train_map:
             self.theta[:self.n_features] = 0
         else:
-            self.theta[:self.n_features] = np.pi
+            self.theta[:self.n_features] = np.pi / 2
 
         if not self.optimizer == None:
             self.optimizer.initialize(self.theta.shape)
@@ -227,7 +227,13 @@ class RegularizedModel():
         delta = (y_pred - y)
         weight_gradient = np.zeros((n_samples, len(self.theta)))
 
-        for i in range(len(self.theta)):
+        if self.train_map:
+            start = 0
+        else:
+            start = self.n_features
+
+        for i in range(start, len(self.theta)):
+
             self.theta[i] += np.pi / 2
             weight_gradient[:, i] += 1 / \
                 (2 * np.sqrt(2)) * self.predict(x)[:, 0]
@@ -258,8 +264,6 @@ class RegularizedModel():
             penalty = np.zeros_like(gradient)
             if self.train_map:
                 penalty[:self.n_features] = self.theta[:self.n_features]
-            else:
-                gradient_mod[:self.n_features] = 0
 
             self.theta -= self.optimizer.lr * gradient_mod + self.alpha * penalty
 
