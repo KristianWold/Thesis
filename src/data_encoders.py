@@ -7,12 +7,14 @@ from math import floor
 class Encoder():
     def __call__(self, circuit, data_register, data):
         n_qubits = data_register.size
+        n_features = data.shape[0]
 
         for i, x in enumerate(data):
             circuit.ry(x, data_register[i])
 
-        # for i in range(n_qubits - 1):
-        #    circuit.cx(data_register[i], data_register[i + 1])
+        if n_qubits > n_features:
+            for i in range(n_features, n_qubits):
+                circuit.h(data_register[i])
 
         return circuit
 
@@ -24,12 +26,10 @@ class RegularizedEncoder():
         for i, x in enumerate(data):
             circuit.ry(x, data_register[i + 1])
 
-        for i in range(n_qubits - 1):
+        for i, x in enumerate(data):
             circuit.cx(data_register[i], data_register[i + 1])
             circuit.ry(theta[i], data_register[i])
             circuit.cx(data_register[i], data_register[i + 1])
-
-        for i, x in enumerate(data):
             circuit.ry(-x, data_register[i + 1])
 
         return circuit

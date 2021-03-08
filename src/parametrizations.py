@@ -155,7 +155,7 @@ class ParallelModel():
 
 
 class RegularizedModel():
-    def __init__(self, n_features=None, n_targets=None, reps=1, alpha=None,  backend=None, shots=1000, optimizer=None):
+    def __init__(self, n_features=None, n_targets=None, reps=1, alpha=None, train_map=True,  backend=None, shots=1000, optimizer=None):
         self.encoder = RegularizedEncoder()
         self.ansatz = Ansatz()
         self.sampler = Parity()
@@ -164,6 +164,7 @@ class RegularizedModel():
         self.n_targets = n_targets
         self.reps = reps
         self.alpha = alpha
+        self.train_map = train_map
         self.backend = backend
         self.shots = shots
         self.optimizer = optimizer
@@ -174,7 +175,11 @@ class RegularizedModel():
         self.n_qubits = n_features + 1
         self.theta = np.random.uniform(
             0, 2 * np.pi, self.n_qubits * self.reps + self.n_features)
-        self.theta[:self.n_features] = 0
+
+        if self.train_map:
+            self.theta[:self.n_features] = 0
+        else:
+            self.theta[:self.n_features] = np.pi
 
         if not self.optimizer == None:
             self.optimizer.initialize(self.theta.shape)
@@ -251,9 +256,12 @@ class RegularizedModel():
             gradient_mod = self.optimizer([gradient])[0]
 
             penalty = np.zeros_like(gradient)
-            penalty[:self.n_features] = self.theta[:self.n_features]
+            if self.train_map:
+                penalty[:self.n_features] = self.theta[:self.n_features]
+            else:
+                gradient_mod[:self.n_features] = 0
 
-            self.theta += -self.optimizer.lr * gradient_mod + self.alpha * penalty
+            self.theta -= self.optimizer.lr * gradient_mod + self.alpha * penalty
 
             if verbose:
                 print(f"epoch: {i}, loss: {self.loss[-1]}")
