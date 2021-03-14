@@ -100,7 +100,7 @@ class QLayer():
                                    backend=self.backend,
                                    shots=self.shots,
                                    max_parallel_shots=1,
-                                   max_parallel_experiments=0
+                                   max_parallel_experiments=11
                                    )
         job = self.backend.run(qobject_list)
 
