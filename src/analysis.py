@@ -25,9 +25,10 @@ class FIM():
 
         self.fim = 1 / n_samples * gradient_flattened.T @ gradient_flattened
 
-    def eigen(self):
+    def eigen(self, sort=False):
         self.eigen = np.linalg.eig(self.fim)[0]
-        self.eigen[::-1].sort()
+        if sort:
+            self.eigen[::-1].sort()
         return np.abs(self.eigen)
 
     def fisher_rao(self):

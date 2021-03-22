@@ -100,7 +100,7 @@ class QLayer():
                                    backend=self.backend,
                                    shots=self.shots,
                                    max_parallel_shots=1,
-                                   max_parallel_experiments=11
+                                   max_parallel_experiments=0
                                    )
         job = self.backend.run(qobject_list)
 
@@ -120,9 +120,9 @@ class QLayer():
 
         for i in range(self.reps * self.n_qubits):
             self.weight[i, :] += np.pi / 2
-            weight_partial[:, i, :] = 1 / (2 * np.sqrt(2)) * self(inputs)
+            weight_partial[:, i, :] = 1 / 2 * self(inputs)
             self.weight[i, :] += -np.pi
-            weight_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
+            weight_partial[:, i, :] += -1 / 2 * self(inputs)
             self.weight[i, :] += np.pi / 2
 
         weight_gradient = weight_partial * delta.reshape(n_samples, 1, -1)
@@ -132,9 +132,9 @@ class QLayer():
         if not self.last_layer:
             for i in range(self.n_features):
                 inputs[:, i] += np.pi / 2
-                input_partial[:, i, :] = 1 / (2 * np.sqrt(2)) * self(inputs)
+                input_partial[:, i, :] = 1 / 2 * self(inputs)
                 inputs[:, i] += -np.pi
-                input_partial[:, i, :] += -1 / (2 * np.sqrt(2)) * self(inputs)
+                input_partial[:, i, :] += -1 / 2 * self(inputs)
                 inputs[:, i] += np.pi / 2
 
             delta = np.einsum("ij,ikj->ik", delta, input_partial)

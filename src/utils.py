@@ -80,10 +80,13 @@ def random_mixed_gaussian(x, n_gaussians=3):
     return y
 
 
-def scaler(x, a=0, b=1):
-    x = x - np.min(x, axis=0)
-    x = (b - a) * x / np.max(x, axis=0)
-    x = x + a
+def scaler(x, mode="uniform", a=0, b=np.pi):
+    if mode == "uniform":
+        x = x - np.min(x, axis=0)
+        x = (b - a) * x / np.max(x, axis=0)
+        x = x + a
+    if mode == "standard":
+        x = (x - np.mean(x, axis=0)) / np.std(x, axis=0)
 
     return x
 
