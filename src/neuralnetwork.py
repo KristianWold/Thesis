@@ -146,14 +146,17 @@ def sequential_qnn(q_bits=None, dim=None, reps=None, scale=None, backend=None, s
     return network
 
 
-def sequential_dnn(dim=None, bias=True, lr=0.01):
+def sequential_dnn(dim=None, bias=True, scale=None, lr=0.01):
     L = len(dim)
+
+    if scale == None:
+        scale = (L - 1) * [1]
 
     layers = []
     for i in range(L - 1):
         in_dim = dim[i]
         out_dim = dim[i + 1]
-        layer = Dense(n_features=in_dim, n_targets=out_dim,
+        layer = Dense(n_features=in_dim, n_targets=out_dim, scale=scale[i],
                       activation=Sigmoid(), bias=bias)
         layers.append(layer)
 

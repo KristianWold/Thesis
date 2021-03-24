@@ -110,7 +110,7 @@ class QLayer():
 
         outputs = np.array(outputs).reshape(n_samples, -1)
 
-        return self.scale * np.array(outputs)
+        return self.scale * (np.array(outputs) - 0.1) / (0.9 - 0.1)
 
     def grad(self, inputs, delta, samplewise=False):
         inputs = deepcopy(inputs)
