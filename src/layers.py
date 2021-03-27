@@ -94,6 +94,8 @@ class QLayer():
 
                 circuit.measure(data_register, clas_register)
                 circuit_list.append(circuit)
+                # print(circuit)
+                # exit()
 
         transpiled_list = qk.transpile(circuit_list, backend=self.backend)
         qobject_list = qk.assemble(transpiled_list,
@@ -110,7 +112,7 @@ class QLayer():
 
         outputs = np.array(outputs).reshape(n_samples, -1)
 
-        return self.scale * (np.array(outputs) - 0.1) / (0.9 - 0.1)
+        return self.scale * np.array(outputs)
 
     def grad(self, inputs, delta, samplewise=False):
         inputs = deepcopy(inputs)
