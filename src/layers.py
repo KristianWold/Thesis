@@ -29,7 +29,8 @@ class Dense():
     def grad(self, inputs, delta, samplewise=False):
         n_samples = inputs.shape[0]
         output = self(inputs)
-        delta = self.activation.derivative(output) * delta
+        delta = self.scale * \
+            self.activation.derivative(output / self.scale) * delta
 
         if not samplewise:
             weight_gradient = 1 / n_samples * inputs.T @ delta
