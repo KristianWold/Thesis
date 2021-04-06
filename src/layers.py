@@ -95,8 +95,6 @@ class QLayer():
 
                 circuit.measure(data_register, clas_register)
                 circuit_list.append(circuit)
-                # print(circuit)
-                # exit()
 
         transpiled_list = qk.transpile(circuit_list, backend=self.backend)
         qobject_list = qk.assemble(transpiled_list,
